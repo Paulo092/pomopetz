@@ -2,6 +2,11 @@
   <div class="timer" :class="`mode-${pomodoro.currentMode}`">
     <h2 class="ribbon">{{ modeIcon }} {{ pomodoro.getModeLabel() }}</h2>
 
+    <!-- Botão da janela flutuante (Picture-in-Picture) -->
+    <div class="pip-slot">
+      <TimerPip :pomodoro="pomodoro" :pet="pet" @error="emit('pip-error', $event)" />
+    </div>
+
     <!-- Seletor de modo -->
     <div class="modes" role="radiogroup" aria-label="Modo do temporizador">
       <button
@@ -117,10 +122,14 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import ConfirmDialog from './ConfirmDialog.vue'
+import TimerPip from './TimerPip.vue'
 
 const props = defineProps({
-  pomodoro: { type: Object, required: true }
+  pomodoro: { type: Object, required: true },
+  pet: { type: Object, default: null }
 })
+
+const emit = defineEmits(['pip-error'])
 
 const RADIUS = 96
 const CIRCUMFERENCE = 2 * Math.PI * RADIUS
@@ -212,6 +221,15 @@ const runningMessage = computed(() =>
 }
 
 .ribbon { @include ribbon(var(--mode), var(--mode-deep)); }
+
+.pip-slot {
+  // "Morde" a borda superior do painel, como a faixa do título
+  position: absolute;
+  top: 0;
+  right: 1.25rem;
+  z-index: 2;
+  translate: 0 -55%;
+}
 
 // ---------- Modos ----------
 .modes {

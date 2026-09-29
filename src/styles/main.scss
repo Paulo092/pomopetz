@@ -119,6 +119,18 @@
 }
 
 // =============================================================
+//  Janela flutuante (Document Picture-in-Picture)
+//  Fundo opaco na janela inteira e sem rolagem.
+// =============================================================
+html.pip-document {
+  height: 100%;
+  overflow: hidden;
+  background-color: $bg;
+
+  body { height: 100%; overflow: hidden; }
+}
+
+// =============================================================
 //  Base
 // =============================================================
 *,

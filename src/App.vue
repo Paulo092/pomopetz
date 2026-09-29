@@ -46,7 +46,11 @@
       <div class="container">
         <div class="stage">
           <section class="stage-timer" aria-label="Temporizador">
-            <TimerDisplay :pomodoro="pomodoro" />
+            <TimerDisplay
+              :pomodoro="pomodoro"
+              :pet="rewards.getActivePet()"
+              @pip-error="pushToast('🪟', 'Não foi possível abrir a janela flutuante neste navegador.', 'info')"
+            />
           </section>
 
           <aside class="stage-side">
