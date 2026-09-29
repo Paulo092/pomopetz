@@ -26,36 +26,30 @@
       <button class="control-button reset" @click="pomodoro.reset()">
         🔄 Resetar
       </button>
-      <button class="control-button skip" @click="handleSkip()">
+      <button class="control-button skip" @click="pomodoro.skip()">
         ⏭️ Pular
       </button>
     </div>
 
-    <div class="timer-status" :class="{ completed: pomodoro.timeRemaining === 0 && !pomodoro.isRunning }">
-      <span v-if="pomodoro.isRunning" class="status-text">⏱️ Temporizador em execução...</span>
-      <span v-else-if="pomodoro.timeRemaining === 0" class="status-text">✅ Ciclo completo! Parabéns!</span>
+    <div class="timer-status" :class="{ completed: pomodoro.lastCompletedMode }">
+      <span v-if="pomodoro.isRunning" class="status-text">⏱️ {{ pomodoro.getModeLabel() }} em andamento...</span>
+      <span v-else-if="pomodoro.lastCompletedMode" class="status-text">
+        ✅ {{ pomodoro.getModeLabel(pomodoro.lastCompletedMode) }} concluído! Próximo: {{ pomodoro.getModeLabel() }}
+      </span>
       <span v-else class="status-text">⏸️ Pausado</span>
     </div>
   </div>
 </template>
 
 <script setup>
-const props = defineProps({
+defineProps({
   pomodoro: { type: Object, required: true }
 })
-
-const emit = defineEmits(['focus-completed'])
-
-const handleSkip = () => {
-  const wasFocus = props.pomodoro.currentMode === props.pomodoro.MODES.FOCUS
-  props.pomodoro.skip()
-  if (wasFocus) emit('focus-completed')
-}
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/variables.scss';
-@import '../styles/mixins.scss';
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
 
 .timer-display {
   @include flex-column;

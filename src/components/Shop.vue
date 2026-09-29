@@ -23,7 +23,7 @@
 </template>
 
 <script setup>
-defineProps({
+const props = defineProps({
   rewards: { type: Object, required: true }
 })
 
@@ -35,15 +35,15 @@ const rarityLabel = (rarity) => {
 }
 
 const buyPet = (petId) => {
-  if (this.rewards.buyPet(petId)) {
+  if (props.rewards.buyPet(petId)) {
     emit('pet-purchased', petId)
   }
 }
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/variables.scss';
-@import '../styles/mixins.scss';
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
 
 .shop {
   @include card;

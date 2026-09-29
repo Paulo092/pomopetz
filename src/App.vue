@@ -22,10 +22,7 @@
       <div class="container">
         <div class="content-grid">
           <div class="timer-section">
-            <TimerDisplay 
-              :pomodoro="pomodoro"
-              @focus-completed="onFocusCompleted"
-            />
+            <TimerDisplay :pomodoro="pomodoro" />
           </div>
           <div class="pet-section">
             <ActivePet :pet="rewards.getActivePet()" />
@@ -78,7 +75,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, onMounted, onUnmounted } from 'vue'
 import { usePomodoro } from './composables/usePomodoro'
 import { useRewards } from './composables/useRewards'
 import { useStreak } from './composables/useStreak'
@@ -92,19 +89,22 @@ import Shop from './components/Shop.vue'
 import PetCollection from './components/PetCollection.vue'
 import ExcursionPanel from './components/ExcursionPanel.vue'
 
+// Os composables retornam objetos com refs. Envolvê-los em reactive()
+// desembrulha as refs, então nos templates e nos componentes filhos
+// `pomodoro.isRunning` é um boolean (e não um objeto Ref sempre "truthy").
 const dataMigration = useDataMigration()
-const pomodoro = usePomodoro()
-const rewards = useRewards()
-const streak = useStreak()
-const excursion = useExcursion(
+const rewards = reactive(useRewards())
+const streak = reactive(useStreak())
+const pomodoro = reactive(usePomodoro({ onComplete: handleCycleCompleted }))
+const excursion = reactive(useExcursion(
   (coins) => rewards.addCoins(coins),
   (petId) => {
     if (!rewards.hasPet(petId)) {
-      rewards.unlockedPets.value.push(petId)
-      rewards.save?.()
+      rewards.unlockedPets.push(petId)
+      rewards.save()
     }
   }
-)
+))
 
 const activeTab = ref('shop')
 const tabs = ['shop', 'collection', 'excursions']
@@ -126,15 +126,18 @@ const getTabLabel = (tab) => {
   return labels[tab]
 }
 
-const onFocusCompleted = () => {
+// Chamado pelo usePomodoro quando um ciclo termina naturalmente
+function handleCycleCompleted (mode) {
+  if (mode !== pomodoro.MODES.FOCUS) return
+
   if (streak.recordFocusCompletion()) {
-    console.log('Novo pet de streak desbloqueado!')
+    console.log('Ofensiva atualizada:', streak.currentStreak)
   }
   rewards.addCoins(25)
 }
 
 const onPetPurchased = (petId) => {
-  if (rewards.unlockedPets.value.length === 1) {
+  if (rewards.unlockedPets.length === 1) {
     rewards.setActivePet(petId)
   }
 }
@@ -154,8 +157,8 @@ const getAllPets = () => [
 </script>
 
 <style lang="scss" scoped>
-@import './styles/variables.scss';
-@import './styles/mixins.scss';
+@use './styles/variables' as *;
+@use './styles/mixins' as *;
 
 .app {
   display: flex;

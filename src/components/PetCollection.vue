@@ -78,8 +78,8 @@ const selectPet = (petId) => {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/variables.scss';
-@import '../styles/mixins.scss';
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
 
 .collection { @include card; }
 

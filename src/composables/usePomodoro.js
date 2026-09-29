@@ -12,34 +12,38 @@ const MODE_DURATIONS = {
   [MODES.LONG_BREAK]: 15 * 60
 }
 
+// A cada N ciclos de foco, a pausa é longa
+const FOCUS_CYCLES_BEFORE_LONG_BREAK = 4
+
 const STORAGE_KEY = 'pomopetz_pomodoro'
 
-export function usePomodoro() {
+/**
+ * Temporizador Pomodoro.
+ * O tempo é calculado a partir de um timestamp de término (endAt), e não
+ * decrementando um contador — assim o timer não "atrasa" quando a aba fica
+ * em segundo plano e continua correto após recarregar a página.
+ *
+ * @param {Object} options
+ * @param {(mode: string) => void} [options.onComplete] chamado quando um ciclo termina naturalmente
+ */
+export function usePomodoro({ onComplete } = {}) {
   const currentMode = ref(MODES.FOCUS)
   const timeRemaining = ref(MODE_DURATIONS[MODES.FOCUS])
   const isRunning = ref(false)
-  let interval = null
+  const completedFocusCount = ref(0)
+  const lastCompletedMode = ref(null)
 
-  const initializeFromStorage = () => {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY)
-      if (stored) {
-        const data = JSON.parse(stored)
-        currentMode.value = data.currentMode || MODES.FOCUS
-        timeRemaining.value = data.timeRemaining || MODE_DURATIONS[currentMode.value]
-      }
-    } catch (error) {
-      console.error('Erro ao carregar pomodoro do localStorage:', error)
-    }
-  }
+  let endAt = null
+  let interval = null
 
   const saveToStorage = () => {
     try {
-      const data = {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
         currentMode: currentMode.value,
-        timeRemaining: timeRemaining.value
-      }
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+        timeRemaining: timeRemaining.value,
+        completedFocusCount: completedFocusCount.value,
+        endAt: isRunning.value ? endAt : null
+      }))
     } catch (error) {
       console.error('Erro ao salvar pomodoro no localStorage:', error)
     }
@@ -52,59 +56,113 @@ export function usePomodoro() {
   })
 
   const updateTabTitle = () => {
-    document.title = `${formattedTime.value} - Pomopetz`
+    document.title = isRunning.value
+      ? `${formattedTime.value} · ${getModeLabel()} - Pomopetz`
+      : 'Pomopetz'
   }
 
-  const start = () => {
-    if (isRunning.value || timeRemaining.value === 0) return
-    isRunning.value = true
-    interval = setInterval(() => {
-      timeRemaining.value--
-      if (timeRemaining.value === 0) {
-        pause()
-      }
-      updateTabTitle()
-      saveToStorage()
-    }, 1000)
-  }
-
-  const pause = () => {
+  const stopInterval = () => {
     if (interval) {
       clearInterval(interval)
       interval = null
     }
+  }
+
+  const getNextMode = (finishedMode) => {
+    if (finishedMode !== MODES.FOCUS) return MODES.FOCUS
+    return completedFocusCount.value > 0 &&
+      completedFocusCount.value % FOCUS_CYCLES_BEFORE_LONG_BREAK === 0
+      ? MODES.LONG_BREAK
+      : MODES.SHORT_BREAK
+  }
+
+  const goToMode = (mode) => {
+    currentMode.value = mode
+    timeRemaining.value = MODE_DURATIONS[mode]
+  }
+
+  // Ciclo terminou naturalmente (tempo chegou a zero)
+  const complete = () => {
+    const finishedMode = currentMode.value
+    stopInterval()
     isRunning.value = false
+    endAt = null
+
+    if (finishedMode === MODES.FOCUS) completedFocusCount.value++
+    lastCompletedMode.value = finishedMode
+    goToMode(getNextMode(finishedMode))
     saveToStorage()
+    updateTabTitle()
+
+    onComplete?.(finishedMode)
+  }
+
+  const tick = () => {
+    const remaining = Math.max(0, Math.ceil((endAt - Date.now()) / 1000))
+    if (remaining !== timeRemaining.value) timeRemaining.value = remaining
+    if (remaining === 0) complete()
+  }
+
+  const runInterval = () => {
+    stopInterval()
+    isRunning.value = true
+    // 250ms mantém o display preciso sem custo relevante
+    interval = setInterval(tick, 250)
+    tick()
+  }
+
+  const start = () => {
+    if (isRunning.value) return
+    if (timeRemaining.value <= 0) timeRemaining.value = MODE_DURATIONS[currentMode.value]
+    lastCompletedMode.value = null
+    endAt = Date.now() + timeRemaining.value * 1000
+    runInterval()
+    saveToStorage()
+  }
+
+  const pause = () => {
+    if (!isRunning.value) return
+    tick()
+    stopInterval()
+    isRunning.value = false
+    endAt = null
+    saveToStorage()
+    updateTabTitle()
   }
 
   const reset = () => {
-    pause()
+    stopInterval()
+    isRunning.value = false
+    endAt = null
+    lastCompletedMode.value = null
     timeRemaining.value = MODE_DURATIONS[currentMode.value]
-    updateTabTitle()
     saveToStorage()
+    updateTabTitle()
   }
 
+  // Pular NÃO conta como ciclo concluído (sem recompensa)
   const skip = () => {
-    pause()
-    const modes = Object.values(MODES)
-    const currentIndex = modes.indexOf(currentMode.value)
-    const nextIndex = (currentIndex + 1) % modes.length
-    currentMode.value = modes[nextIndex]
-    timeRemaining.value = MODE_DURATIONS[currentMode.value]
-    updateTabTitle()
+    stopInterval()
+    isRunning.value = false
+    endAt = null
+    lastCompletedMode.value = null
+    goToMode(currentMode.value === MODES.FOCUS ? MODES.SHORT_BREAK : MODES.FOCUS)
     saveToStorage()
+    updateTabTitle()
   }
 
   const setMode = (mode) => {
     if (!Object.values(MODES).includes(mode)) return
-    pause()
-    currentMode.value = mode
-    timeRemaining.value = MODE_DURATIONS[mode]
-    updateTabTitle()
+    stopInterval()
+    isRunning.value = false
+    endAt = null
+    lastCompletedMode.value = null
+    goToMode(mode)
     saveToStorage()
+    updateTabTitle()
   }
 
-  const getModeLabel = (mode = currentMode.value) => {
+  function getModeLabel (mode = currentMode.value) {
     const labels = {
       [MODES.FOCUS]: 'Foco',
       [MODES.SHORT_BREAK]: 'Pausa Curta',
@@ -113,16 +171,53 @@ export function usePomodoro() {
     return labels[mode]
   }
 
-  const cleanup = () => {
-    if (interval) clearInterval(interval)
+  const cleanup = () => stopInterval()
+
+  const initializeFromStorage = () => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY)
+      if (!stored) return
+      const data = JSON.parse(stored)
+
+      currentMode.value = Object.values(MODES).includes(data.currentMode) ? data.currentMode : MODES.FOCUS
+      completedFocusCount.value = Number(data.completedFocusCount) || 0
+      timeRemaining.value = Number.isFinite(data.timeRemaining) && data.timeRemaining > 0
+        ? data.timeRemaining
+        : MODE_DURATIONS[currentMode.value]
+
+      // Estava rodando quando a página foi fechada/recarregada
+      if (data.endAt) {
+        endAt = data.endAt
+        if (endAt > Date.now()) {
+          runInterval()
+        } else {
+          complete()
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao carregar pomodoro do localStorage:', error)
+    }
   }
 
-  watch(timeRemaining, updateTabTitle)
+  watch([timeRemaining, isRunning], updateTabTitle)
+
   initializeFromStorage()
   updateTabTitle()
 
   return {
-    currentMode, timeRemaining, isRunning, formattedTime,
-    start, pause, reset, skip, setMode, getModeLabel, cleanup, MODES
+    currentMode,
+    timeRemaining,
+    isRunning,
+    completedFocusCount,
+    lastCompletedMode,
+    formattedTime,
+    start,
+    pause,
+    reset,
+    skip,
+    setMode,
+    getModeLabel,
+    cleanup,
+    MODES
   }
 }

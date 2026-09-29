@@ -161,8 +161,9 @@ const claimReward = (excursionIndex) => {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/variables.scss';
-@import '../styles/mixins.scss';
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+@use "sass:color";
 
 .excursion-panel { @include card; }
 
@@ -254,7 +255,7 @@ const claimReward = (excursionIndex) => {
   padding: $spacing-md $spacing-lg;
 
   &:hover:not(:disabled) {
-    background-color: darken($success-color, 10%);
+    background-color: color.adjust($success-color, $lightness: -10%);
   }
 }
 

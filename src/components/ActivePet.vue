@@ -38,8 +38,8 @@ const rarityLabel = computed(() => {
 </script>
 
 <style lang="scss" scoped>
-@import '../styles/variables.scss';
-@import '../styles/mixins.scss';
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
 
 .active-pet {
   @include card;
