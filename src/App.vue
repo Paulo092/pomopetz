@@ -1,6 +1,7 @@
 <template>
   <div class="app">
     <GameToast :toasts="toasts" @dismiss="dismissToast" />
+    <SettingsDialog :open="showSettings" @close="showSettings = false" />
 
     <!-- HUD superior -->
     <header class="hud">
@@ -28,6 +29,14 @@
             @click="toggleTheme"
           >
             {{ isDark ? '☀️' : '🌙' }}
+          </button>
+          <button
+            class="settings-btn"
+            title="Configurações"
+            aria-label="Configurações"
+            @click="showSettings = true"
+          >
+            ⚙️
           </button>
         </div>
       </div>
@@ -110,8 +119,10 @@ import { useRewards } from './composables/useRewards'
 import { useStreak } from './composables/useStreak'
 import { useExcursion } from './composables/useExcursion'
 import { useDataMigration } from './composables/useDataMigration'
+import { useSound } from './composables/useSound'
 
 import GameToast from './components/GameToast.vue'
+import SettingsDialog from './components/SettingsDialog.vue'
 import TimerDisplay from './components/TimerDisplay.vue'
 import ActivePet from './components/ActivePet.vue'
 import StreakWidget from './components/StreakWidget.vue'
@@ -137,6 +148,10 @@ const excursion = reactive(useExcursion(
 ))
 
 const COINS_PER_FOCUS = 25
+
+// ---------- Som e configurações ----------
+const sound = useSound()
+const showSettings = ref(false)
 
 // ---------- Toasts ----------
 const toasts = ref([])
@@ -208,14 +223,21 @@ syncStreakPets()
 
 onMounted(() => {
   dataMigration.initialize()
+  // Navegadores bloqueiam áudio até a primeira interação: libera no 1º clique/tecla
+  window.addEventListener('pointerdown', sound.unlock, { once: true })
+  window.addEventListener('keydown', sound.unlock, { once: true })
 })
 
 onUnmounted(() => {
   pomodoro.cleanup()
+  window.removeEventListener('pointerdown', sound.unlock)
+  window.removeEventListener('keydown', sound.unlock)
 })
 
 // Chamado pelo usePomodoro quando um ciclo termina naturalmente
 function handleCycleCompleted (mode) {
+  sound.play()
+
   if (mode !== pomodoro.MODES.FOCUS) {
     pushToast('☕', 'Pausa encerrada! Bora focar de novo?', 'info')
     return
@@ -370,7 +392,8 @@ const onExcursionClaimed = (reward) => {
   &.streak.off .stat-icon { filter: grayscale(1); }
 }
 
-.theme-toggle {
+.theme-toggle,
+.settings-btn {
   @include chunky-icon-btn(2.75rem);
 }
 
