@@ -3,11 +3,11 @@ import { ref, computed } from 'vue'
 const STORAGE_KEY = 'pomopetz_streak'
 
 export const STREAK_PETS = [
-  { id: 101, name: 'Ninetales', emoji: '🦊', streakRequired: 3, rarity: 'rare' },
-  { id: 102, name: 'Arcanine', emoji: '🐕‍🦺', streakRequired: 7, rarity: 'rare' },
-  { id: 103, name: 'Moltres', emoji: '🔥🦅', streakRequired: 30, rarity: 'legendary' },
-  { id: 104, name: 'Ho-Oh', emoji: '🌈🦅', streakRequired: 60, rarity: 'legendary' },
-  { id: 105, name: 'Lugia', emoji: '💫🐦', streakRequired: 100, rarity: 'legendary' }
+  { id: 101, name: 'Rubi', emoji: '🦊', streakRequired: 3, rarity: 'rare' },
+  { id: 102, name: 'Biscoito', emoji: '🐕‍🦺', streakRequired: 7, rarity: 'rare' },
+  { id: 103, name: 'Solaris', emoji: '🔥🦅', streakRequired: 30, rarity: 'legendary' },
+  { id: 104, name: 'Prisma', emoji: '🌈🦅', streakRequired: 60, rarity: 'legendary' },
+  { id: 105, name: 'Cometa', emoji: '💫🐦', streakRequired: 100, rarity: 'legendary' }
 ]
 
 export function useStreak() {

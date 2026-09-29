@@ -63,11 +63,11 @@ Os mixins em `src/styles/mixins.scss` facilitam responsividade e componentes com
 
 ## 📊 Pets Disponíveis
 
-**Loja**: 6 pets (Pikachu, Bulbassauro, Blastoise, Charizard, Dragonite, Mewtwo)
+**Loja**: 6 pets (Faísca, Brotinho, Marola, Brasa, Dracolino, Zorbit)
 
-**Ofensiva**: 5 pets (Ninetales, Arcanine, Moltres, Ho-Oh, Lugia)
+**Ofensiva**: 5 pets (Rubi, Biscoito, Solaris, Prisma, Cometa)
 
-**Excursão**: 7 pets de 4 regiões diferentes
+**Excursão**: 7 pets de 4 regiões diferentes (Musguito, Pedregulho, Coralina, Magmito, Nevasca, Trovão, Vulcana)
 
 ## 🔧 Desenvolvimento
 

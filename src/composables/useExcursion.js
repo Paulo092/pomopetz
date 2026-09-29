@@ -17,13 +17,13 @@ export const EXCURSION_CONFIG = {
 }
 
 export const EXCURSION_PETS = [
-  { id: 201, name: 'Venusaur', emoji: '🦕', regions: ['forest'], rarity: 'rare' },
-  { id: 202, name: 'Golem', emoji: '🪨', regions: ['mountain'], rarity: 'rare' },
-  { id: 203, name: 'Lapras', emoji: '🐢', regions: ['ocean'], rarity: 'rare' },
-  { id: 204, name: 'Magmortar', emoji: '🔥', regions: ['volcano'], rarity: 'rare' },
-  { id: 205, name: 'Articuno', emoji: '❄️🦅', regions: ['mountain'], rarity: 'legendary' },
-  { id: 206, name: 'Zapdos', emoji: '⚡🦅', regions: ['forest'], rarity: 'legendary' },
-  { id: 207, name: 'Moltres', emoji: '🔥🦅', regions: ['volcano'], rarity: 'legendary' }
+  { id: 201, name: 'Musguito', emoji: '🦕', regions: ['forest'], rarity: 'rare' },
+  { id: 202, name: 'Pedregulho', emoji: '🪨', regions: ['mountain'], rarity: 'rare' },
+  { id: 203, name: 'Coralina', emoji: '🐢', regions: ['ocean'], rarity: 'rare' },
+  { id: 204, name: 'Magmito', emoji: '🔥', regions: ['volcano'], rarity: 'rare' },
+  { id: 205, name: 'Nevasca', emoji: '❄️🦅', regions: ['mountain'], rarity: 'legendary' },
+  { id: 206, name: 'Trovão', emoji: '⚡🦅', regions: ['forest'], rarity: 'legendary' },
+  { id: 207, name: 'Vulcana', emoji: '🔥🦅', regions: ['volcano'], rarity: 'legendary' }
 ]
 
 export function useExcursion(onGetCoinsCallback = null, onUnlockPetCallback = null) {

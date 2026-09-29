@@ -5,12 +5,12 @@ import { EXCURSION_PETS } from './useExcursion'
 const STORAGE_KEY = 'pomopetz_rewards'
 
 export const SHOP_PETS = [
-  { id: 1, name: 'Pikachu', emoji: '⚡', price: 100, rarity: 'common' },
-  { id: 2, name: 'Bulbassauro', emoji: '🌱', price: 150, rarity: 'common' },
-  { id: 3, name: 'Blastoise', emoji: '💧', price: 250, rarity: 'rare' },
-  { id: 4, name: 'Charizard', emoji: '🔥', price: 300, rarity: 'rare' },
-  { id: 5, name: 'Dragonite', emoji: '🐉', price: 500, rarity: 'epic' },
-  { id: 6, name: 'Mewtwo', emoji: '👽', price: 1000, rarity: 'legendary' }
+  { id: 1, name: 'Faísca', emoji: '⚡', price: 100, rarity: 'common' },
+  { id: 2, name: 'Brotinho', emoji: '🌱', price: 150, rarity: 'common' },
+  { id: 3, name: 'Marola', emoji: '💧', price: 250, rarity: 'rare' },
+  { id: 4, name: 'Brasa', emoji: '🔥', price: 300, rarity: 'rare' },
+  { id: 5, name: 'Dracolino', emoji: '🐉', price: 500, rarity: 'epic' },
+  { id: 6, name: 'Zorbit', emoji: '👽', price: 1000, rarity: 'legendary' }
 ]
 
 export function useRewards() {
