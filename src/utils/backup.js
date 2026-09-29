@@ -124,6 +124,11 @@ const VALIDATORS = {
     return Number.isFinite(s.currentStreak) && Array.isArray(s.unlockedStreakPets ?? [])
   },
   pomopetz_excursions: (v) => isJsonObjectOrArray(v) && Array.isArray(JSON.parse(v)),
+  pomopetz_profile: (v) => {
+    if (!isJsonObjectOrArray(v)) return false
+    const p = JSON.parse(v)
+    return typeof (p.name ?? '') === 'string' && (p.name ?? '').length <= 100
+  },
   pomopetz_pomodoro: isJsonObjectOrArray,
   pomopetz_settings: isJsonObjectOrArray
 }
@@ -205,11 +210,13 @@ export function summarizeData (data) {
   const rewards = safeParse(data.pomopetz_rewards, {})
   const streak = safeParse(data.pomopetz_streak, {})
   const pomodoro = safeParse(data.pomopetz_pomodoro, {})
+  const profile = safeParse(data.pomopetz_profile, {})
   const pets = new Set([
     ...(Array.isArray(rewards.unlockedPets) ? rewards.unlockedPets : []),
     ...(Array.isArray(streak.unlockedStreakPets) ? streak.unlockedStreakPets : [])
   ])
   return {
+    name: typeof profile.name === 'string' ? profile.name : '',
     coins: Number(rewards.coins) || 0,
     pets: pets.size,
     streak: Number(streak.currentStreak) || 0,

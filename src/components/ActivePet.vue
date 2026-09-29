@@ -45,6 +45,7 @@
 
 <script setup>
 import { ref, computed, watch, onUnmounted } from 'vue'
+import { useProfile } from '../composables/useProfile'
 
 const props = defineProps({
   pet: { type: Object, default: null },
@@ -70,6 +71,8 @@ const MOOD_LINES = {
   idle: ''
 }
 
+const { firstName } = useProfile()
+
 const bubble = ref('')
 const hopping = ref(false)
 let bubbleTimer = null
@@ -83,7 +86,11 @@ const say = (text, duration = 2600) => {
 const poke = () => {
   hopping.value = false
   requestAnimationFrame(() => { hopping.value = true })
-  say(POKE_LINES[Math.floor(Math.random() * POKE_LINES.length)])
+  // Com nome definido, o pet também fala com a pessoa pelo nome
+  const lines = firstName.value
+    ? [...POKE_LINES, `Oi, ${firstName.value}! 👋`, `${firstName.value}, bora mais um? 🍅`]
+    : POKE_LINES
+  say(lines[Math.floor(Math.random() * lines.length)])
 }
 
 watch(() => props.mood, (mood) => say(MOOD_LINES[mood], 0), { immediate: true })

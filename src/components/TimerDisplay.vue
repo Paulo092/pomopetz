@@ -90,7 +90,7 @@
       <template v-else-if="pomodoro.lastCompletedMode">
         ✨ {{ pomodoro.getModeLabel(pomodoro.lastCompletedMode) }} concluído! Próximo: <strong>{{ pomodoro.getModeLabel() }}</strong>
       </template>
-      <template v-else>Aperte <strong>Iniciar</strong> quando estiver pronto.</template>
+      <template v-else>Aperte <strong>Iniciar</strong> quando estiver pronto{{ nameSuffix }}.</template>
     </p>
 
     <!-- Aviso ao trocar de modo com o timer rodando -->
@@ -123,6 +123,7 @@
 import { ref, computed, watch } from 'vue'
 import ConfirmDialog from './ConfirmDialog.vue'
 import TimerPip from './TimerPip.vue'
+import { useProfile } from '../composables/useProfile'
 
 const props = defineProps({
   pomodoro: { type: Object, required: true },
@@ -187,9 +188,11 @@ watch(() => props.pomodoro.isRunning, (running) => {
   if (!running) pending.value = null
 })
 
+const { nameSuffix } = useProfile()
+
 const runningMessage = computed(() =>
   props.pomodoro.currentMode === props.pomodoro.MODES.FOCUS
-    ? 'Modo foco ativado! Seu pet está torcendo por você.'
+    ? `Modo foco ativado! Seu pet está torcendo por você${nameSuffix.value}.`
     : 'Hora de relaxar. Estique as pernas e beba água 💧'
 )
 </script>

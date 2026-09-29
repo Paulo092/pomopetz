@@ -2,13 +2,17 @@
   <div class="app">
     <GameToast :toasts="toasts" @dismiss="dismissToast" />
     <SettingsDialog :open="showSettings" @close="showSettings = false" />
+    <WelcomeDialog :open="needsOnboarding" @done="onWelcomeDone" />
 
     <!-- HUD superior -->
     <header class="hud">
       <div class="container hud-inner">
         <div class="brand">
           <span class="brand-badge" aria-hidden="true">🍅</span>
-          <h1 class="brand-name">Pomo<span>petz</span></h1>
+          <div class="brand-text">
+            <h1 class="brand-name">Pomo<span>petz</span></h1>
+            <p v-if="firstName" class="brand-greeting">{{ greeting() }}, {{ firstName }}! 👋</p>
+          </div>
         </div>
 
         <div class="hud-stats">
@@ -124,10 +128,12 @@ import { useStreak } from './composables/useStreak'
 import { useExcursion } from './composables/useExcursion'
 import { useDataMigration } from './composables/useDataMigration'
 import { useSound } from './composables/useSound'
+import { useProfile } from './composables/useProfile'
 import { RESTORED_FLAG } from './utils/backup'
 
 import GameToast from './components/GameToast.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
+import WelcomeDialog from './components/WelcomeDialog.vue'
 import TimerDisplay from './components/TimerDisplay.vue'
 import ActivePet from './components/ActivePet.vue'
 import StreakWidget from './components/StreakWidget.vue'
@@ -159,6 +165,16 @@ const COINS_PER_FOCUS = 25
 
 // ---------- Som e configurações ----------
 const sound = useSound()
+
+// ---------- Perfil ----------
+const { firstName, nameSuffix, needsOnboarding, greeting, finishOnboarding } = useProfile()
+
+const onWelcomeDone = (name) => {
+  finishOnboarding(name)
+  pushToast('🐣', firstName.value
+    ? `Prazer, ${firstName.value}! Vamos focar? 🍅`
+    : 'Tudo pronto! Vamos focar? 🍅', 'success')
+}
 const showSettings = ref(false)
 
 // ---------- Toasts ----------
@@ -234,7 +250,7 @@ onMounted(() => {
   try {
     if (sessionStorage.getItem(RESTORED_FLAG)) {
       sessionStorage.removeItem(RESTORED_FLAG)
-      pushToast('💾', 'Progresso restaurado com sucesso!', 'success')
+      pushToast('💾', `Progresso restaurado! Bem-vindo de volta${nameSuffix.value}!`, 'success')
     }
   } catch {}
 
@@ -254,16 +270,16 @@ function handleCycleCompleted (mode) {
   sound.play()
 
   if (mode !== pomodoro.MODES.FOCUS) {
-    pushToast('☕', 'Pausa encerrada! Bora focar de novo?', 'info')
+    pushToast('☕', `Pausa encerrada! Bora focar de novo${nameSuffix.value}?`, 'info')
     return
   }
 
   rewards.addCoins(COINS_PER_FOCUS)
-  pushToast('🪙', `+${COINS_PER_FOCUS} moedas! Foco concluído`, 'coins')
+  pushToast('🪙', `+${COINS_PER_FOCUS} moedas! Mandou bem${nameSuffix.value}!`, 'coins')
 
   const before = streak.unlockedStreakPets.length
   if (streak.recordFocusCompletion()) {
-    pushToast('🔥', `Ofensiva: ${streak.currentStreak} ${streak.currentStreak === 1 ? 'dia' : 'dias'}!`, 'streak')
+    pushToast('🔥', `Ofensiva: ${streak.currentStreak} ${streak.currentStreak === 1 ? 'dia' : 'dias'}! Continue assim${nameSuffix.value}!`, 'streak')
   }
 
   if (streak.unlockedStreakPets.length > before) {
@@ -275,7 +291,7 @@ function handleCycleCompleted (mode) {
 
 const onPetPurchased = (petId) => {
   const pet = rewards.getPetById(petId)
-  pushToast(pet?.emoji || '🎉', `${pet?.name || 'Pet'} entrou para a coleção!`, 'pet')
+  pushToast(pet?.emoji || '🎉', `${pet?.name || 'Pet'} entrou para a sua coleção!`, 'pet')
   if (!rewards.activePetId) rewards.setActivePet(petId)
 }
 
@@ -341,6 +357,22 @@ const onExcursionClaimed = (reward) => {
     height: 3.5rem;
     font-size: 2rem;
   }
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.brand-greeting {
+  font-family: $font-display;
+  font-weight: 500;
+  font-size: $font-size-sm;
+  color: $ink-soft;
+  line-height: 1.2;
+  @include truncate;
+  max-width: 14rem;
 }
 
 .brand-name {

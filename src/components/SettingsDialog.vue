@@ -23,6 +23,34 @@
 
     <BackupPanel v-if="activeTab === 'backup'" />
 
+    <section v-else-if="activeTab === 'profile'" class="section" aria-labelledby="profile-heading">
+      <h3 id="profile-heading" class="section-title">👤 Seu nome</h3>
+
+      <form class="profile-form" @submit.prevent="saveName">
+        <label for="profile-name" class="sr-only">Nome ou apelido</label>
+        <input
+          id="profile-name"
+          v-model="nameDraft"
+          class="profile-input"
+          type="text"
+          :maxlength="NAME_MAX_LENGTH"
+          autocomplete="given-name"
+          placeholder="Seu nome ou apelido (opcional)"
+        />
+        <button type="submit" class="btn-save" :disabled="!nameChanged">
+          {{ nameSaved ? '✓ Salvo!' : 'Salvar' }}
+        </button>
+      </form>
+
+      <p class="note">
+        <template v-if="draftFirstName">
+          Vamos te chamar assim: <strong>“{{ greeting() }}, {{ draftFirstName }}!”</strong>
+        </template>
+        <template v-else>Sem nome, as mensagens ficam neutras. Tudo bem também!</template>
+        O nome fica só neste navegador (e nos seus backups).
+      </p>
+    </section>
+
     <section v-else class="section" aria-labelledby="sound-heading">
       <div class="section-head">
         <h3 id="sound-heading" class="section-title">🔔 Som ao terminar o timer</h3>
@@ -100,6 +128,7 @@
 import { ref, computed, watch } from 'vue'
 import BaseDialog from './BaseDialog.vue'
 import BackupPanel from './BackupPanel.vue'
+import { useProfile, sanitizeName, NAME_MAX_LENGTH } from '../composables/useProfile'
 import { useSound } from '../composables/useSound'
 
 const props = defineProps({
@@ -109,13 +138,34 @@ const props = defineProps({
 const emit = defineEmits(['close'])
 
 const TABS = [
+  { id: 'profile', label: '👤 Perfil' },
   { id: 'sound', label: '🔔 Som' },
   { id: 'backup', label: '💾 Backup' }
 ]
-const activeTab = ref('sound')
+const activeTab = ref('profile')
 
-// Sempre abre na primeira aba
-watch(() => props.open, (open) => { if (open) activeTab.value = 'sound' })
+// ---------- Perfil ----------
+const { profile, setName, greeting } = useProfile()
+const nameDraft = ref(profile.name)
+const nameSaved = ref(false)
+
+const nameChanged = computed(() => sanitizeName(nameDraft.value) !== profile.name)
+const draftFirstName = computed(() => sanitizeName(nameDraft.value).split(' ')[0])
+
+const saveName = () => {
+  setName(nameDraft.value)
+  nameDraft.value = profile.name
+  nameSaved.value = true
+  setTimeout(() => { nameSaved.value = false }, 1800)
+}
+
+// Sempre abre na primeira aba, com o nome atual
+watch(() => props.open, (open) => {
+  if (!open) return
+  activeTab.value = 'profile'
+  nameDraft.value = profile.name
+  nameSaved.value = false
+})
 
 // As preferências são salvas automaticamente no localStorage pelo useSound
 const { settings, SOUND_OPTIONS, preview } = useSound()
@@ -164,6 +214,29 @@ const volumeIcon = computed(() => {
     border-color: $outline;
     box-shadow: inset 0 -3px 0 $grape-deep, 0 2px 0 $outline;
   }
+}
+
+// ---------- Perfil ----------
+.profile-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.profile-input {
+  @include input-base;
+  flex: 1 1 14rem;
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: $font-size-lg;
+
+  &::placeholder { color: $ink-faint; font-weight: 500; font-size: $font-size-base; }
+}
+
+.btn-save {
+  @include chunky-btn($grape, $grape-deep);
+  flex: 0 0 auto;
+  min-width: 7rem;
 }
 
 .section {

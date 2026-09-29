@@ -5,7 +5,7 @@
     <div class="shop-header">
       <span class="keeper" aria-hidden="true">🦝</span>
       <p class="keeper-line">
-        Bem-vindo! Cada foco concluído rende <strong>🪙 25</strong>. O que vai levar hoje?
+        Bem-vindo{{ nameSuffix }}! Cada foco concluído rende <strong>🪙 25</strong>. O que vai levar hoje?
       </p>
       <div class="wallet">
         <span class="wallet-icon" aria-hidden="true">🪙</span>
@@ -48,11 +48,15 @@
 </template>
 
 <script setup>
+import { useProfile } from '../composables/useProfile'
+
 const props = defineProps({
   rewards: { type: Object, required: true }
 })
 
 const emit = defineEmits(['pet-purchased'])
+
+const { nameSuffix } = useProfile()
 
 const RARITY_LABELS = { common: 'Comum', rare: 'Raro', epic: 'Épico', legendary: 'Lendário' }
 const rarityLabel = (rarity) => RARITY_LABELS[rarity]

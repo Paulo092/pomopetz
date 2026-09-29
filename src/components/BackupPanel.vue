@@ -1,7 +1,7 @@
 <template>
   <div class="backup">
     <!-- Exportar -->
-    <section class="box" aria-labelledby="export-heading">
+    <section v-if="!importOnly" class="box" aria-labelledby="export-heading">
       <h3 id="export-heading" class="box-title">📤 Exportar progresso</h3>
       <p class="box-text">
         Gere um código com <strong>todo o seu progresso</strong>: moedas, pets, ofensiva,
@@ -10,6 +10,7 @@
       </p>
 
       <p class="summary" aria-label="Progresso atual">
+        <span v-if="current.name">👤 {{ current.name }}</span>
         <span>🪙 {{ current.coins }}</span>
         <span>🐾 {{ plural(current.pets, 'pet') }}</span>
         <span>🔥 {{ plural(current.streak, 'dia') }}</span>
@@ -43,7 +44,7 @@
       <h3 id="import-heading" class="box-title">📥 Restaurar progresso</h3>
       <p class="box-text">
         Cole um código de backup ou abra o arquivo <code>.txt</code>.
-        <strong>O progresso atual será substituído.</strong>
+        <strong v-if="!importOnly">O progresso atual será substituído.</strong>
       </p>
 
       <label for="import-code" class="sr-only">Código para restaurar</label>
@@ -86,12 +87,13 @@
           Backup<template v-if="pending.createdAt"> de <strong>{{ formatDate(pending.createdAt) }}</strong></template>:
         </p>
         <p class="summary">
+          <span v-if="pendingSummary.name">👤 {{ pendingSummary.name }}</span>
           <span>🪙 {{ pendingSummary.coins }}</span>
           <span>🐾 {{ plural(pendingSummary.pets, 'pet') }}</span>
           <span>🔥 {{ plural(pendingSummary.streak, 'dia') }}</span>
           <span>🍅 {{ plural(pendingSummary.focusCycles, 'ciclo') }}</span>
         </p>
-        <p>
+        <p v-if="!importOnly">
           Seu progresso atual (🪙 {{ current.coins }} · 🐾 {{ plural(current.pets, 'pet') }} · 🔥 {{ plural(current.streak, 'dia') }})
           será <strong>apagado</strong>. Se quiser guardá-lo, exporte um backup antes.
         </p>
@@ -113,6 +115,11 @@ import {
   BackupError,
   RESTORED_FLAG
 } from '../utils/backup'
+
+defineProps({
+  // Só a parte de restaurar (usado no popup de boas-vindas)
+  importOnly: { type: Boolean, default: false }
+})
 
 const current = ref(summarizeData(collectData()))
 

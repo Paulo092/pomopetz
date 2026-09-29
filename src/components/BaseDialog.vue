@@ -5,7 +5,7 @@
     :class="`tone-${tone}`"
     :style="{ '--dialog-width': width }"
     :aria-labelledby="titleId"
-    @cancel.prevent="emit('close')"
+    @cancel.prevent="dismissable && emit('close')"
     @click="onBackdropClick"
   >
     <div class="card">
@@ -39,7 +39,9 @@ const props = defineProps({
   icon: { type: String, default: '💬' },
   // 'warning' | 'danger' | 'info' | 'grape'
   tone: { type: String, default: 'info' },
-  width: { type: String, default: '460px' }
+  width: { type: String, default: '460px' },
+  // false: Esc e clique fora não fecham (o usuário precisa escolher uma ação)
+  dismissable: { type: Boolean, default: true }
 })
 
 const emit = defineEmits(['close'])
@@ -59,7 +61,7 @@ onMounted(() => sync(props.open))
 
 // Clique no fundo escurecido (fora do cartão) fecha
 const onBackdropClick = (event) => {
-  if (event.target === dialogEl.value) emit('close')
+  if (props.dismissable && event.target === dialogEl.value) emit('close')
 }
 </script>
 
