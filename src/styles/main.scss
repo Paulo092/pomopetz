@@ -1,7 +1,129 @@
 @use './variables' as *;
 @use './mixins' as *;
 
-* {
+// =============================================================
+//  Temas: "Dia" (claro) e "Noite aconchegante" (escuro)
+//  Segue o sistema por padrão; data-theme no <html> força um tema.
+// =============================================================
+@mixin theme-light {
+  --pp-bg: #fff3e0;
+  --pp-bg-pattern: rgba(122, 86, 58, 0.09);
+  --pp-surface: #fffdf7;
+  --pp-surface-2: #fdf0dc;
+  --pp-surface-3: #f1dcbc;
+  --pp-ink: #4a3426;
+  --pp-ink-soft: #7e6450;
+  --pp-ink-faint: #a88f79;
+  --pp-outline: #4a3426;
+  --pp-scene-sky-top: #bfe6f7;
+  --pp-scene-sky-bottom: #fff6e3;
+  --pp-scene-grass: #8fd694;
+  --pp-scene-grass-deep: #5fb86a;
+  --pp-silhouette: brightness(0) opacity(0.3);
+  color-scheme: light;
+}
+
+@mixin theme-dark {
+  --pp-bg: #1e1a2c;
+  --pp-bg-pattern: rgba(255, 255, 255, 0.045);
+  --pp-surface: #2c2641;
+  --pp-surface-2: #241f36;
+  --pp-surface-3: #3d355a;
+  --pp-ink: #fff1de;
+  --pp-ink-soft: #d0c0de;
+  --pp-ink-faint: #9486ad;
+  --pp-outline: #120e1c;
+  --pp-scene-sky-top: #2a2f5e;
+  --pp-scene-sky-bottom: #4b3f75;
+  --pp-scene-grass: #4f8f6a;
+  --pp-scene-grass-deep: #3a6f51;
+  --pp-silhouette: brightness(0) invert(1) opacity(0.35);
+  color-scheme: dark;
+}
+
+:root { @include theme-light; }
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) { @include theme-dark; }
+}
+
+:root[data-theme='dark'] { @include theme-dark; }
+
+// =============================================================
+//  Keyframes globais (usadas pelos componentes)
+// =============================================================
+@keyframes pp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@keyframes pp-slide-up {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pp-pop-in {
+  0% { opacity: 0; transform: scale(0.6); }
+  100% { opacity: 1; transform: scale(1); }
+}
+
+@keyframes pp-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.06); }
+}
+
+@keyframes pp-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pp-shadow-bob {
+  0%, 100% { transform: translateX(-50%) scale(1); opacity: 0.3; }
+  50% { transform: translateX(-50%) scale(0.8); opacity: 0.18; }
+}
+
+@keyframes pp-hop {
+  0% { transform: translateY(0) scale(1, 1); }
+  20% { transform: translateY(0) scale(1.15, 0.85); }
+  50% { transform: translateY(-34px) scale(0.92, 1.1); }
+  80% { transform: translateY(0) scale(1.1, 0.9); }
+  100% { transform: translateY(0) scale(1, 1); }
+}
+
+@keyframes pp-wiggle {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-8deg); }
+  75% { transform: rotate(8deg); }
+}
+
+@keyframes pp-flicker {
+  0%, 100% { transform: scale(1) rotate(-2deg); }
+  50% { transform: scale(1.08, 1.12) rotate(2deg); }
+}
+
+@keyframes pp-shine {
+  0% { transform: translateX(-120%) rotate(20deg); }
+  60%, 100% { transform: translateX(220%) rotate(20deg); }
+}
+
+@keyframes pp-twinkle {
+  0%, 100% { opacity: 0; transform: scale(0.4) rotate(0); }
+  50% { opacity: 1; transform: scale(1) rotate(45deg); }
+}
+
+@keyframes pp-walk {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-4px) rotate(6deg); }
+}
+
+@keyframes pp-cloud {
+  from { left: -90px; }
+  to { left: 105%; }
+}
+
+// =============================================================
+//  Base
+// =============================================================
+*,
+*::before,
+*::after {
   margin: 0;
   padding: 0;
   box-sizing: border-box;
@@ -9,99 +131,67 @@
 
 html {
   font-size: 16px;
+  -webkit-text-size-adjust: 100%;
 }
 
 body {
   font-family: $font-family-base;
   font-size: $font-size-base;
-  font-weight: $font-weight-regular;
-  line-height: 1.6;
-  color: $text-primary;
-  background-color: $bg-secondary;
+  font-weight: 600;
+  line-height: 1.5;
+  color: $ink;
+  background-color: $bg;
+  // Padrão de bolinhas, como papel de parede de jogo aconchegante
+  background-image:
+    radial-gradient($bg-pattern 2.5px, transparent 3px),
+    radial-gradient($bg-pattern 2.5px, transparent 3px);
+  background-size: 36px 36px;
+  background-position: 0 0, 18px 18px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  transition: background-color $transition-slow, color $transition-slow;
 }
 
 h1, h2, h3, h4, h5, h6 {
-  font-weight: $font-weight-bold;
-  line-height: 1.2;
-  margin-bottom: $spacing-md;
+  font-family: $font-display;
+  font-weight: 600;
+  line-height: 1.15;
 }
 
 h1 { font-size: $font-size-4xl; }
 h2 { font-size: $font-size-3xl; }
 h3 { font-size: $font-size-2xl; }
 h4 { font-size: $font-size-xl; }
-h5 { font-size: $font-size-lg; }
-h6 { font-size: $font-size-base; }
-
-p {
-  margin-bottom: $spacing-md;
-  
-  &:last-child {
-    margin-bottom: 0;
-  }
-}
 
 a {
-  color: $primary-color;
+  color: $tomato-deep;
   text-decoration: none;
-  transition: color $transition-base;
-  
-  &:hover {
-    color: $primary-dark;
-  }
+  font-weight: 800;
 }
 
-ul, ol {
-  margin-left: $spacing-lg;
-  margin-bottom: $spacing-md;
-  
-  li {
-    margin-bottom: $spacing-sm;
-  }
-}
-
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: $bg-tertiary;
-}
-
-::-webkit-scrollbar-thumb {
-  background: $border-color;
-  border-radius: $radius-full;
-  
-  &:hover {
-    background: $text-tertiary;
-  }
-}
+ul, ol { list-style: none; }
 
 ::selection {
-  background-color: $primary-color;
-  color: white;
+  background-color: $sun;
+  color: $ink-on-color;
 }
 
 :focus-visible {
-  outline: 2px solid $primary-color;
-  outline-offset: 2px;
+  outline: 3px solid $sun;
+  outline-offset: 3px;
+  border-radius: 6px;
 }
 
-input, textarea, select {
-  @include input-base;
-}
+button { @include btn-reset; }
 
-button {
-  @include btn-reset;
-}
+img, svg { display: block; max-width: 100%; }
 
-img {
-  max-width: 100%;
-  height: auto;
-  display: block;
+::-webkit-scrollbar { width: 12px; height: 12px; }
+::-webkit-scrollbar-track { background: $surface-2; }
+::-webkit-scrollbar-thumb {
+  background: $surface-3;
+  border: 3px solid $surface-2;
+  border-radius: $radius-full;
 }
 
 #app {
@@ -111,11 +201,22 @@ img {
 }
 
 .container {
-  max-width: 1280px;
+  width: 100%;
+  max-width: 1180px;
   margin: 0 auto;
-  padding: 0 $spacing-lg;
-  
-  @include md-up {
-    padding: 0 $spacing-xl;
+  padding: 0 $spacing-md;
+
+  @include md-up { padding: 0 $spacing-xl; }
+}
+
+.sr-only { @include visually-hidden; }
+
+@include reduced-motion {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

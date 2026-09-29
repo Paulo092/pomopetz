@@ -1,142 +1,303 @@
 <template>
-  <div class="timer-display">
-    <div class="timer-modes">
+  <div class="timer" :class="`mode-${pomodoro.currentMode}`">
+    <h2 class="ribbon">{{ modeIcon }} {{ pomodoro.getModeLabel() }}</h2>
+
+    <!-- Seletor de modo -->
+    <div class="modes" role="radiogroup" aria-label="Modo do temporizador">
       <button
         v-for="mode in Object.values(pomodoro.MODES)"
         :key="mode"
-        class="mode-button"
-        :class="{ active: pomodoro.currentMode === mode }"
+        role="radio"
+        class="mode-btn"
+        :class="[`is-${mode}`, { active: pomodoro.currentMode === mode }]"
+        :aria-checked="pomodoro.currentMode === mode"
         @click="pomodoro.setMode(mode)"
       >
         {{ pomodoro.getModeLabel(mode) }}
       </button>
     </div>
 
-    <div class="timer-clock">
-      <div class="time-display">{{ pomodoro.formattedTime }}</div>
+    <!-- Anel de progresso -->
+    <div class="dial" :class="{ running: pomodoro.isRunning }">
+      <svg class="ring" viewBox="0 0 220 220" aria-hidden="true">
+        <circle class="ring-base" cx="110" cy="110" r="106" />
+        <circle class="ring-track" cx="110" cy="110" :r="RADIUS" />
+        <circle
+          class="ring-fill"
+          cx="110"
+          cy="110"
+          :r="RADIUS"
+          :stroke-dasharray="CIRCUMFERENCE"
+          :stroke-dashoffset="dashOffset"
+        />
+        <circle class="ring-line" cx="110" cy="110" r="106" />
+        <circle class="ring-line" cx="110" cy="110" r="86" />
+      </svg>
+
+      <div class="dial-face">
+        <span class="dial-label">{{ pomodoro.isRunning ? 'restam' : 'pronto?' }}</span>
+        <time class="dial-time" role="timer" aria-live="off">{{ pomodoro.formattedTime }}</time>
+        <span class="dial-cycles" :title="`${pomodoro.completedFocusCount} ciclos de foco concluídos`">
+          🍅 × {{ pomodoro.completedFocusCount }}
+        </span>
+      </div>
     </div>
 
-    <div class="timer-controls">
-      <button class="control-button start" :disabled="pomodoro.isRunning" @click="pomodoro.start()">
-        ▶️ Iniciar
+    <!-- Controles -->
+    <div class="controls">
+      <button
+        class="ctrl-round"
+        title="Resetar"
+        aria-label="Resetar"
+        @click="pomodoro.reset()"
+      >
+        🔄
       </button>
-      <button class="control-button pause" :disabled="!pomodoro.isRunning" @click="pomodoro.pause()">
-        ⏸️ Pausar
+
+      <button
+        v-if="!pomodoro.isRunning"
+        class="ctrl-main"
+        @click="pomodoro.start()"
+      >
+        <span aria-hidden="true">▶</span> Iniciar
       </button>
-      <button class="control-button reset" @click="pomodoro.reset()">
-        🔄 Resetar
+      <button
+        v-else
+        class="ctrl-main paused"
+        @click="pomodoro.pause()"
+      >
+        <span aria-hidden="true">❚❚</span> Pausar
       </button>
-      <button class="control-button skip" @click="pomodoro.skip()">
-        ⏭️ Pular
+
+      <button
+        class="ctrl-round"
+        title="Pular para o próximo modo"
+        aria-label="Pular"
+        @click="pomodoro.skip()"
+      >
+        ⏭️
       </button>
     </div>
 
-    <div class="timer-status" :class="{ completed: pomodoro.lastCompletedMode }">
-      <span v-if="pomodoro.isRunning" class="status-text">⏱️ {{ pomodoro.getModeLabel() }} em andamento...</span>
-      <span v-else-if="pomodoro.lastCompletedMode" class="status-text">
-        ✅ {{ pomodoro.getModeLabel(pomodoro.lastCompletedMode) }} concluído! Próximo: {{ pomodoro.getModeLabel() }}
-      </span>
-      <span v-else class="status-text">⏸️ Pausado</span>
-    </div>
+    <!-- Mensagem de status em balão -->
+    <p class="status" :class="{ done: pomodoro.lastCompletedMode }">
+      <template v-if="pomodoro.isRunning">{{ runningMessage }}</template>
+      <template v-else-if="pomodoro.lastCompletedMode">
+        ✨ {{ pomodoro.getModeLabel(pomodoro.lastCompletedMode) }} concluído! Próximo: <strong>{{ pomodoro.getModeLabel() }}</strong>
+      </template>
+      <template v-else>Aperte <strong>Iniciar</strong> quando estiver pronto.</template>
+    </p>
   </div>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from 'vue'
+
+const props = defineProps({
   pomodoro: { type: Object, required: true }
 })
+
+const RADIUS = 96
+const CIRCUMFERENCE = 2 * Math.PI * RADIUS
+
+const dashOffset = computed(() => CIRCUMFERENCE * (1 - props.pomodoro.progress))
+
+const modeIcon = computed(() => ({
+  focus: '🎯',
+  shortBreak: '☕',
+  longBreak: '🌙'
+}[props.pomodoro.currentMode]))
+
+const runningMessage = computed(() =>
+  props.pomodoro.currentMode === props.pomodoro.MODES.FOCUS
+    ? 'Modo foco ativado! Seu pet está torcendo por você.'
+    : 'Hora de relaxar. Estique as pernas e beba água 💧'
+)
 </script>
 
 <style lang="scss" scoped>
 @use '../styles/variables' as *;
 @use '../styles/mixins' as *;
 
-.timer-display {
-  @include flex-column;
-  gap: $spacing-xl;
+.timer {
+  --mode: #{$tomato};
+  --mode-deep: #{$tomato-deep};
+
+  @include panel($spacing-xl $spacing-md $spacing-lg);
+  @include stitched;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $spacing-lg;
+  margin-top: $spacing-md;
+  background:
+    radial-gradient(circle at 50% 38%, color-mix(in srgb, var(--mode) 18%, transparent), transparent 60%),
+    $surface;
+  transition: background $transition-slow;
+
+  @include md-up { padding: $spacing-2xl $spacing-xl $spacing-xl; }
+
+  &.mode-shortBreak { --mode: #{$mint}; --mode-deep: #{$mint-deep}; }
+  &.mode-longBreak { --mode: #{$sky}; --mode-deep: #{$sky-deep}; }
 }
 
-.timer-modes {
-  @include flex-center;
-  gap: $spacing-md;
-  flex-wrap: wrap;
+.ribbon { @include ribbon(var(--mode), var(--mode-deep)); }
+
+// ---------- Modos ----------
+.modes {
+  @include well($radius-full);
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.35rem;
+  max-width: 100%;
+  position: relative;
+  z-index: 1;
 }
 
-.mode-button {
-  @include btn-base;
-  background-color: $bg-tertiary;
-  color: $text-primary;
-  border: 2px solid transparent;
-  padding: $spacing-sm $spacing-md;
+.mode-btn {
+  padding: 0.55rem 0.9rem;
+  font-family: $font-display;
+  font-weight: 600;
   font-size: $font-size-sm;
+  color: $ink-soft;
+  border: $border-width solid transparent;
+  border-radius: $radius-full;
+  white-space: nowrap;
+  transition: background $transition-base, color $transition-base, transform $transition-fast;
 
-  &:hover:not(:disabled) {
-    border-color: $primary-color;
-  }
+  @include sm-up { padding: 0.55rem 1.2rem; font-size: $font-size-base; }
+
+  &:hover:not(.active) { color: $ink; transform: translateY(-1px); }
 
   &.active {
-    background-color: $primary-color;
-    color: white;
-    border-color: $primary-color;
+    color: $ink-on-color;
+    border-color: $outline;
+    box-shadow: inset 0 -3px 0 var(--btn-deep), 0 2px 0 $outline;
+    background: var(--btn);
   }
+
+  &.is-focus { --btn: #{$tomato}; --btn-deep: #{$tomato-deep}; }
+  &.is-shortBreak { --btn: #{$mint}; --btn-deep: #{$mint-deep}; }
+  &.is-longBreak { --btn: #{$sky}; --btn-deep: #{$sky-deep}; }
 }
 
-.timer-clock {
-  @include flex-center;
-  padding: $spacing-2xl;
-  background: linear-gradient(135deg, $primary-light, $primary-dark);
-  border-radius: $radius-xl;
-  color: white;
+// ---------- Mostrador ----------
+.dial {
+  position: relative;
+  width: min(78vw, 290px);
+  aspect-ratio: 1;
+  z-index: 1;
+
+  @include md-up { width: 320px; }
 }
 
-.time-display {
-  font-size: 5rem;
-  font-weight: $font-weight-bold;
-  font-family: $font-family-mono;
-  letter-spacing: $spacing-md;
-
-  @include sm-up {
-    font-size: 6rem;
-  }
+.ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+  overflow: visible;
+  // degrau sólido embaixo (a rotação de -90° faz o eixo X virar "baixo")
+  filter: drop-shadow(-5px 0 0 var(--pp-outline));
 }
 
-.timer-controls {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: $spacing-md;
+.ring-base { fill: $surface; }
 
-  @include sm-up {
-    grid-template-columns: 1fr 1fr 1fr 1fr;
-  }
+.ring-track {
+  fill: none;
+  stroke: $surface-3;
+  stroke-width: 18;
 }
 
-.control-button {
-  @include btn-base;
-  @include btn-primary;
-  padding: $spacing-md;
+.ring-line {
+  fill: none;
+  stroke: $outline;
+  stroke-width: 2.6;
+}
+
+.ring-fill {
+  fill: none;
+  stroke: var(--mode);
+  stroke-width: 18;
+  stroke-linecap: round;
+  transition: stroke-dashoffset 400ms linear, stroke $transition-slow;
+}
+
+.dial-face {
+  @include absolute-center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.dial-label {
+  font-family: $font-display;
+  font-weight: 500;
   font-size: $font-size-sm;
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-
-  &.pause { background-color: $warning-color; }
-  &.reset { background-color: $info-color; }
-  &.skip { background-color: $success-color; }
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: $ink-faint;
 }
 
-.timer-status {
-  text-align: center;
-  padding: $spacing-lg;
-  background-color: $bg-tertiary;
-  border-radius: $radius-lg;
-  font-weight: $font-weight-semibold;
-  color: $text-secondary;
+.dial-time {
+  font-family: $font-numbers;
+  font-weight: 900;
+  font-size: clamp(2.8rem, 13vw, 4rem);
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: $ink;
 
-  &.completed {
-    background-color: rgba($success-color, 0.1);
-    color: $success-color;
+  .dial.running & { animation: pp-pulse 2s ease-in-out infinite; }
+
+  @include md-up { font-size: 4.4rem; }
+}
+
+.dial-cycles {
+  @include chip($surface-2, $ink-soft);
+  margin-top: 0.35rem;
+  text-transform: none;
+  font-size: $font-size-sm;
+}
+
+// ---------- Controles ----------
+.controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $spacing-md;
+  position: relative;
+  z-index: 1;
+}
+
+.ctrl-main {
+  @include chunky-btn(var(--mode), var(--mode-deep));
+  min-width: 10rem;
+  padding: 0.95rem 1.6rem;
+  font-size: $font-size-xl;
+
+  &.paused { @include chunky-btn($sun, $sun-deep); min-width: 10rem; padding: 0.95rem 1.6rem; font-size: $font-size-xl; }
+}
+
+.ctrl-round { @include chunky-icon-btn(3.4rem); }
+
+// ---------- Status ----------
+.status {
+  position: relative;
+  z-index: 1;
+  max-width: 28rem;
+  padding: 0.7rem 1.1rem;
+  text-align: center;
+  font-weight: 700;
+  font-size: $font-size-sm;
+  color: $ink-soft;
+  @include well;
+
+  strong { color: $ink; }
+
+  &.done {
+    color: $ink;
+    background: color-mix(in srgb, #{$sun} 30%, transparent);
+    animation: pp-pop-in 400ms $ease-bounce both;
   }
 }
 </style>

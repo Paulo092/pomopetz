@@ -1,51 +1,59 @@
 <template>
-  <div class="collection">
-    <h2>📚 Minha Coleção</h2>
+  <section class="album">
+    <h2 class="ribbon">📖 Coleção</h2>
 
-    <div v-if="unlockedPets.length === 0" class="empty-state">
-      <p>Nenhum pet desbloqueado ainda.</p>
-      <p class="text-small">Compre um pet na loja para começar sua coleção!</p>
-    </div>
-
-    <div v-else>
-      <div class="collection-tabs">
-        <button v-for="tab in collectionTabs" :key="tab" class="tab-button" :class="{ active: activeCollectionTab === tab }" @click="activeCollectionTab = tab">
-          {{ getTabLabel(tab) }}
+    <div class="album-top">
+      <div class="tabs" role="tablist" aria-label="Categorias da coleção">
+        <button
+          v-for="cat in categories"
+          :key="cat.id"
+          role="tab"
+          class="tab"
+          :class="[cat.id, { active: activeCategory === cat.id }]"
+          :aria-selected="activeCategory === cat.id"
+          @click="activeCategory = cat.id"
+        >
+          <span aria-hidden="true">{{ cat.icon }}</span>
+          {{ cat.label }}
+          <span class="tab-count">{{ ownedCount(cat.id) }}/{{ cat.pets.length }}</span>
         </button>
       </div>
 
-      <div v-if="activeCollectionTab === 'shop'" class="tab-content">
-        <div class="pets-grid">
-          <div v-for="pet in shopPets" :key="pet.id" class="pet-item" :class="{ active: rewards.activePetId === pet.id }" @click="selectPet(pet.id)">
-            <div class="pet-emoji">{{ pet.emoji }}</div>
-            <div class="pet-name">{{ pet.name }}</div>
-            <div v-if="rewards.activePetId === pet.id" class="active-indicator">✓</div>
-          </div>
+      <div class="completion" :aria-label="`${totalOwned} de ${totalPets} pets coletados`">
+        <div class="completion-bar">
+          <div class="completion-fill" :style="{ width: (totalOwned / totalPets) * 100 + '%' }"></div>
         </div>
-      </div>
-
-      <div v-if="activeCollectionTab === 'streak'" class="tab-content">
-        <div v-if="streakPets.length === 0" class="empty-state">
-          <p>Nenhum pet de streak desbloqueado ainda.</p>
-          <p class="text-small">Complete ciclos de foco seguidos para desbloquear!</p>
-        </div>
-        <div v-else class="pets-grid">
-          <div v-for="pet in streakPets" :key="pet.id" class="pet-item" :class="{ active: rewards.activePetId === pet.id }" @click="selectPet(pet.id)">
-            <div class="pet-emoji">{{ pet.emoji }}</div>
-            <div class="pet-name">{{ pet.name }}</div>
-            <div class="pet-badge">🔥</div>
-            <div v-if="rewards.activePetId === pet.id" class="active-indicator">✓</div>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="activeCollectionTab === 'excursion'" class="tab-content">
-        <div class="empty-state">
-          <p>Pets de excursão aparecerão aqui quando você completar excursões!</p>
-        </div>
+        <span class="completion-text">{{ totalOwned }}/{{ totalPets }}</span>
       </div>
     </div>
-  </div>
+
+    <p class="hint">{{ currentCategory.hint }}</p>
+
+    <ul class="grid">
+      <li v-for="pet in currentCategory.pets" :key="pet.id">
+        <button
+          class="slot"
+          :class="[pet.rarity, {
+            locked: !isOwned(pet),
+            equipped: rewards.activePetId === pet.id,
+            away: isAway(pet.id)
+          }]"
+          :disabled="!isOwned(pet) || isAway(pet.id)"
+          :aria-label="slotLabel(pet)"
+          @click="selectPet(pet.id)"
+        >
+          <span class="slot-art">
+            <span class="slot-emoji" aria-hidden="true">{{ pet.emoji }}</span>
+            <span v-if="isOwned(pet) && rewards.activePetId === pet.id" class="slot-flag">Equipado</span>
+            <span v-else-if="isAway(pet.id)" class="slot-flag away-flag">🧳 Viajando</span>
+          </span>
+
+          <span class="slot-name">{{ isOwned(pet) ? pet.name : '???' }}</span>
+          <span class="slot-sub">{{ isOwned(pet) ? rarityLabel(pet.rarity) : lockHint(pet) }}</span>
+        </button>
+      </li>
+    </ul>
+  </section>
 </template>
 
 <script setup>
@@ -53,24 +61,73 @@ import { ref, computed } from 'vue'
 
 const props = defineProps({
   rewards: { type: Object, required: true },
-  streak: { type: Object, required: true }
+  streak: { type: Object, required: true },
+  excursion: { type: Object, default: null }
 })
 
 const emit = defineEmits(['pet-selected'])
 
-const activeCollectionTab = ref('shop')
-const collectionTabs = ['shop', 'streak', 'excursion']
+const RARITY_LABELS = { common: 'Comum', rare: 'Raro', epic: 'Épico', legendary: 'Lendário' }
+const rarityLabel = (r) => RARITY_LABELS[r]
 
-const unlockedPets = computed(() => props.rewards.getUnlockedPets())
-const shopPets = computed(() => props.rewards.SHOP_PETS.filter(pet => props.rewards.hasPet(pet.id)))
-const streakPets = computed(() => props.streak.STREAK_PETS.filter(pet => props.streak.hasStreakPet(pet.id)))
+const activeCategory = ref('shop')
 
-const getTabLabel = (tab) => {
-  const labels = { shop: '🛍️ Loja', streak: '🔥 Ofensiva', excursion: '🧳 Excursão' }
-  return labels[tab]
+const categories = computed(() => [
+  {
+    id: 'shop',
+    icon: '🏪',
+    label: 'Loja',
+    pets: props.rewards.SHOP_PETS,
+    hint: 'Compre com moedas ganhas nos ciclos de foco.'
+  },
+  {
+    id: 'streak',
+    icon: '🔥',
+    label: 'Ofensiva',
+    pets: props.streak.STREAK_PETS,
+    hint: 'Exclusivos de perseverança: mantenha a chama acesa por vários dias.'
+  },
+  {
+    id: 'excursion',
+    icon: '🗺️',
+    label: 'Excursão',
+    pets: props.excursion?.EXCURSION_PETS || [],
+    hint: 'Encontrados por sorte quando seus pets voltam de excursões.'
+  }
+])
+
+const currentCategory = computed(() =>
+  categories.value.find(c => c.id === activeCategory.value)
+)
+
+const isOwned = (pet) =>
+  props.rewards.hasPet(pet.id) || (props.streak.hasStreakPet?.(pet.id) ?? false)
+
+const isAway = (petId) =>
+  !!props.excursion?.activeExcursions?.some(e => e.petId === petId && !e.claimed)
+
+const ownedCount = (catId) =>
+  categories.value.find(c => c.id === catId).pets.filter(isOwned).length
+
+const totalPets = computed(() => categories.value.reduce((n, c) => n + c.pets.length, 0) || 1)
+const totalOwned = computed(() => categories.value.reduce((n, c) => n + c.pets.filter(isOwned).length, 0))
+
+const lockHint = (pet) => {
+  if (pet.price) return `🪙 ${pet.price}`
+  if (pet.streakRequired) return `🔥 ${pet.streakRequired} dias`
+  const region = pet.regions?.[0]
+  const cfg = region && props.excursion?.EXCURSION_CONFIG?.[region]
+  return cfg ? `${cfg.emoji} ${cfg.name}` : 'Bloqueado'
+}
+
+const slotLabel = (pet) => {
+  if (!isOwned(pet)) return `Pet bloqueado. ${lockHint(pet)}`
+  if (isAway(pet.id)) return `${pet.name} está em excursão`
+  return props.rewards.activePetId === pet.id ? `${pet.name}, equipado` : `Equipar ${pet.name}`
 }
 
 const selectPet = (petId) => {
+  if (props.rewards.activePetId === petId) return
   if (props.rewards.setActivePet(petId)) {
     emit('pet-selected', petId)
   }
@@ -81,108 +138,207 @@ const selectPet = (petId) => {
 @use '../styles/variables' as *;
 @use '../styles/mixins' as *;
 
-.collection { @include card; }
+.album {
+  @include panel($spacing-2xl $spacing-md $spacing-lg);
+  @include stitched;
 
-.empty-state {
-  text-align: center;
-  padding: $spacing-2xl;
-  color: $text-secondary;
-
-  p { margin-bottom: $spacing-sm;
-
-    &:last-child { margin-bottom: 0; }
-  }
+  @include md-up { padding: $spacing-2xl $spacing-xl $spacing-xl; }
 }
 
-.text-small {
-  font-size: $font-size-sm;
-  opacity: 0.8;
-}
+.ribbon { @include ribbon($grape, $grape-deep); }
 
-.collection-tabs {
-  @include flex-center;
-  gap: $spacing-md;
-  margin-bottom: $spacing-xl;
+.album-top {
+  position: relative;
+  z-index: 1;
+  display: flex;
   flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: $spacing-md;
 }
 
-.tab-button {
-  @include btn-base;
-  background-color: $bg-tertiary;
-  color: $text-primary;
-  border: 1px solid $border-color;
-  padding: $spacing-md $spacing-lg;
+// ---------- Abas ----------
+.tabs {
+  @include well($radius-full);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  padding: 0.35rem;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-family: $font-display;
+  font-weight: 600;
   font-size: $font-size-sm;
+  color: $ink-soft;
+  border: $border-width solid transparent;
+  border-radius: $radius-full;
+  transition: color $transition-base, transform $transition-fast;
 
-  &:hover:not(:disabled) { border-color: $primary-color; }
+  &:hover:not(.active) { color: $ink; transform: translateY(-1px); }
+
   &.active {
-    background-color: $primary-color;
-    color: white;
-    border-color: $primary-color;
+    --t: #{$grape};
+    --t-deep: #{$grape-deep};
+    color: $ink-on-color;
+    background: var(--t);
+    border-color: $outline;
+    box-shadow: inset 0 -3px 0 var(--t-deep), 0 2px 0 $outline;
   }
+
+  &.shop.active { --t: #{$sun}; --t-deep: #{$sun-deep}; }
+  &.streak.active { --t: #{$tomato}; --t-deep: #{$tomato-deep}; }
+  &.excursion.active { --t: #{$mint}; --t-deep: #{$mint-deep}; }
 }
 
-.tab-content { @include slide-up; }
+.tab-count {
+  font-family: $font-numbers;
+  font-weight: 900;
+  font-size: $font-size-xs;
+  opacity: 0.75;
+}
 
-.pets-grid {
+// ---------- Progresso total ----------
+.completion {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 11rem;
+  flex: 0 1 16rem;
+}
+
+.completion-bar {
+  flex: 1;
+  @include progress-track(1.1rem);
+}
+
+.completion-fill { @include progress-fill($grape, $grape-deep); }
+
+.completion-text {
+  font-family: $font-numbers;
+  font-weight: 900;
+  font-size: $font-size-sm;
+}
+
+.hint {
+  position: relative;
+  z-index: 1;
+  margin: $spacing-md 0 $spacing-lg;
+  font-size: $font-size-sm;
+  color: $ink-soft;
+}
+
+// ---------- Grade de slots ----------
+.grid {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
   gap: $spacing-md;
 
-  @include md-up {
-    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-  }
+  @include md-up { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 }
 
-.pet-item {
-  position: relative;
-  @include flex-column;
-  @include flex-center;
-  gap: $spacing-sm;
-  padding: $spacing-lg;
-  background-color: $bg-tertiary;
-  border: 2px solid transparent;
-  border-radius: $radius-lg;
-  cursor: pointer;
-  transition: all $transition-base;
-
-  &:hover {
-    border-color: $primary-color;
-    transform: translateY(-4px);
-  }
-
-  &.active {
-    border-color: $success-color;
-    background: linear-gradient(135deg, rgba($success-color, 0.1), rgba($success-color, 0.05));
-  }
-}
-
-.pet-emoji { font-size: $font-size-3xl; }
-.pet-name {
-  font-size: $font-size-sm;
-  font-weight: $font-weight-semibold;
+.slot {
+  @include rarity-vars;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.5rem 0.5rem 0.75rem;
   text-align: center;
-  color: $text-primary;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-radius: $radius-lg;
+  box-shadow: 0 $ledge 0 $outline;
+  transition: transform $transition-base $ease-bounce, box-shadow $transition-fast;
+  animation: pp-pop-in 320ms $ease-bounce both;
+
+  &:hover:not(:disabled) { transform: translateY(-4px); }
+  &:active:not(:disabled) { transform: translateY(3px); box-shadow: 0 1px 0 $outline; }
+
+  &.equipped {
+    background: color-mix(in srgb, var(--r) 22%, var(--pp-surface));
+    box-shadow: 0 $ledge 0 $outline, 0 0 0 4px var(--r);
+  }
+
+  &.locked {
+    cursor: default;
+    background: $surface-2;
+    border-style: dashed;
+    box-shadow: none;
+  }
+
+  &.away { cursor: default; }
 }
 
-.pet-badge {
-  position: absolute;
-  top: $spacing-sm;
-  right: $spacing-sm;
-  font-size: $font-size-base;
-}
-
-.active-indicator {
-  position: absolute;
-  bottom: $spacing-sm;
-  right: $spacing-sm;
-  width: 24px;
-  height: 24px;
+.slot-art {
+  position: relative;
   @include flex-center;
-  background-color: $success-color;
-  color: white;
-  border-radius: 50%;
-  font-weight: $font-weight-bold;
-  font-size: $font-size-sm;
+  width: 100%;
+  aspect-ratio: 1;
+  background:
+    radial-gradient(circle at 50% 60%, rgba(255, 255, 255, 0.55), transparent 60%),
+    var(--r);
+  border: $border-width solid $outline;
+  border-radius: $radius-md;
+  box-shadow: inset 0 -5px 0 var(--r-deep);
+
+  .locked & {
+    background: $surface-3;
+    box-shadow: none;
+    border-style: dashed;
+  }
+}
+
+.slot-emoji {
+  font-size: 3rem;
+  line-height: 1;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.18));
+
+  .slot:hover:not(:disabled) & { animation: pp-wiggle 500ms ease-in-out; }
+
+  // silhueta dos bloqueados
+  .locked & { @include silhouette; }
+
+  .away & { opacity: 0.45; }
+}
+
+.slot-flag {
+  position: absolute;
+  bottom: -0.7rem;
+  left: 50%;
+  translate: -50% 0;
+  @include chip($mint, $ink-on-color);
+  box-shadow: inset 0 -2px 0 $mint-deep;
+  white-space: nowrap;
+  font-size: 0.65rem;
+
+  &.away-flag {
+    background: $sky;
+    box-shadow: inset 0 -2px 0 $sky-deep;
+  }
+}
+
+.slot-name {
+  margin-top: 0.55rem;
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: $font-size-base;
+  line-height: 1.1;
+  color: $ink;
+
+  .locked & { color: $ink-faint; letter-spacing: 0.2em; }
+}
+
+.slot-sub {
+  font-size: $font-size-xs;
+  font-weight: 800;
+  color: $ink-soft;
 }
 </style>

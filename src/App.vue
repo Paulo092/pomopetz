@@ -1,87 +1,117 @@
 <template>
   <div class="app">
-    <header class="app-header">
-      <div class="container">
-        <div class="header-content">
-          <h1 class="app-title">🍅 Pomopetz</h1>
-          <div class="header-stats">
-            <div class="stat">
-              <span class="stat-icon">💰</span>
-              <span class="stat-value">{{ rewards.coins }}</span>
-            </div>
-            <div class="stat" v-if="streak.currentStreak > 0">
-              <span class="stat-icon">🔥</span>
-              <span class="stat-value">{{ streak.currentStreak }}</span>
-            </div>
+    <GameToast :toasts="toasts" @dismiss="dismissToast" />
+
+    <!-- HUD superior -->
+    <header class="hud">
+      <div class="container hud-inner">
+        <div class="brand">
+          <span class="brand-badge" aria-hidden="true">🍅</span>
+          <h1 class="brand-name">Pomo<span>petz</span></h1>
+        </div>
+
+        <div class="hud-stats">
+          <div class="stat-pill coins" title="Moedas">
+            <span class="stat-icon" aria-hidden="true">🪙</span>
+            <span class="stat-value">{{ rewards.coins }}</span>
+            <span class="sr-only">moedas</span>
           </div>
+          <div class="stat-pill streak" :class="{ off: streak.currentStreak === 0 }" title="Ofensiva diária">
+            <span class="stat-icon" aria-hidden="true">🔥</span>
+            <span class="stat-value">{{ streak.currentStreak }}</span>
+            <span class="sr-only">dias de ofensiva</span>
+          </div>
+          <button
+            class="theme-toggle"
+            :title="isDark ? 'Mudar para tema dia' : 'Mudar para tema noite'"
+            :aria-label="isDark ? 'Mudar para tema dia' : 'Mudar para tema noite'"
+            @click="toggleTheme"
+          >
+            {{ isDark ? '☀️' : '🌙' }}
+          </button>
         </div>
       </div>
     </header>
 
     <main class="app-main">
       <div class="container">
-        <div class="content-grid">
-          <div class="timer-section">
+        <div class="stage">
+          <section class="stage-timer" aria-label="Temporizador">
             <TimerDisplay :pomodoro="pomodoro" />
-          </div>
-          <div class="pet-section">
-            <ActivePet :pet="rewards.getActivePet()" />
-            <StreakWidget 
+          </section>
+
+          <aside class="stage-side">
+            <ActivePet :pet="rewards.getActivePet()" :mood="petMood" />
+            <StreakWidget
               :current-streak="streak.currentStreak"
+              :longest-streak="streak.longestStreak"
               :next-pet-progress="streak.getNextPetProgress"
             />
-          </div>
+          </aside>
         </div>
 
-        <div class="tabs-navigation">
-          <button 
+        <!-- Menu do jogo -->
+        <nav class="menu" role="tablist" aria-label="Menu">
+          <button
             v-for="tab in tabs"
-            :key="tab"
-            class="tab-button"
-            :class="{ active: activeTab === tab }"
-            @click="activeTab = tab"
+            :key="tab.id"
+            role="tab"
+            class="menu-tab"
+            :class="[tab.id, { active: activeTab === tab.id }]"
+            :aria-selected="activeTab === tab.id"
+            @click="activeTab = tab.id"
           >
-            {{ getTabLabel(tab) }}
+            <span class="menu-icon" aria-hidden="true">{{ tab.icon }}</span>
+            <span class="menu-label">{{ tab.label }}</span>
+            <span v-if="tab.id === 'excursions' && readyCount > 0" class="menu-badge">{{ readyCount }}</span>
           </button>
-        </div>
+        </nav>
 
-        <div class="tabs-content">
-          <div v-if="activeTab === 'shop'" class="tab-pane">
-            <Shop 
+        <div class="menu-content" role="tabpanel">
+          <Transition name="swap" mode="out-in">
+            <Shop
+              v-if="activeTab === 'shop'"
+              key="shop"
               :rewards="rewards"
               @pet-purchased="onPetPurchased"
             />
-          </div>
-          <div v-if="activeTab === 'collection'" class="tab-pane">
-            <PetCollection 
+            <PetCollection
+              v-else-if="activeTab === 'collection'"
+              key="collection"
               :rewards="rewards"
               :streak="streak"
+              :excursion="excursion"
               @pet-selected="onPetSelected"
             />
-          </div>
-          <div v-if="activeTab === 'excursions'" class="tab-pane">
-            <ExcursionPanel 
+            <ExcursionPanel
+              v-else
+              key="excursions"
               :excursion="excursion"
               :rewards="rewards"
-              :pets="getAllPets()"
+              :pets="rewards.ALL_PETS"
               @excursion-started="onExcursionStarted"
               @excursion-claimed="onExcursionClaimed"
             />
-          </div>
+          </Transition>
         </div>
       </div>
     </main>
+
+    <footer class="app-footer">
+      <p>Foque, descanse e cuide dos seus pets 🐾</p>
+    </footer>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { usePomodoro } from './composables/usePomodoro'
 import { useRewards } from './composables/useRewards'
 import { useStreak } from './composables/useStreak'
 import { useExcursion } from './composables/useExcursion'
 import { useDataMigration } from './composables/useDataMigration'
 
+import GameToast from './components/GameToast.vue'
 import TimerDisplay from './components/TimerDisplay.vue'
 import ActivePet from './components/ActivePet.vue'
 import StreakWidget from './components/StreakWidget.vue'
@@ -106,8 +136,75 @@ const excursion = reactive(useExcursion(
   }
 ))
 
+const COINS_PER_FOCUS = 25
+
+// ---------- Toasts ----------
+const toasts = ref([])
+let toastId = 0
+
+const pushToast = (icon, text, tone = 'info') => {
+  const id = ++toastId
+  toasts.value.push({ id, icon, text, tone })
+  if (toasts.value.length > 3) toasts.value.shift()
+  setTimeout(() => dismissToast(id), 3200)
+}
+
+const dismissToast = (id) => {
+  toasts.value = toasts.value.filter(t => t.id !== id)
+}
+
+// ---------- Tema ----------
+const THEME_KEY = 'pomopetz_theme'
+const systemDark = window.matchMedia?.('(prefers-color-scheme: dark)')
+const theme = ref(null)
+
+const isDark = computed(() =>
+  theme.value ? theme.value === 'dark' : !!systemDark?.matches
+)
+
+const applyTheme = () => {
+  if (theme.value) document.documentElement.dataset.theme = theme.value
+  else delete document.documentElement.dataset.theme
+}
+
+const toggleTheme = () => {
+  theme.value = isDark.value ? 'light' : 'dark'
+  try { localStorage.setItem(THEME_KEY, theme.value) } catch {}
+  applyTheme()
+}
+
+try { theme.value = localStorage.getItem(THEME_KEY) } catch {}
+applyTheme()
+
+// ---------- Navegação ----------
 const activeTab = ref('shop')
-const tabs = ['shop', 'collection', 'excursions']
+const tabs = [
+  { id: 'shop', icon: '🏪', label: 'Loja' },
+  { id: 'collection', icon: '📖', label: 'Coleção' },
+  { id: 'excursions', icon: '🗺️', label: 'Excursões' }
+]
+
+const readyCount = computed(() => excursion.getReadyExcursions().length)
+
+// Humor do pet acompanha o timer
+const petMood = computed(() => {
+  if (!pomodoro.isRunning) return 'idle'
+  return pomodoro.currentMode === pomodoro.MODES.FOCUS ? 'focus' : 'break'
+})
+
+// Pets de ofensiva também entram na coleção (podem ser equipados/enviados)
+const syncStreakPets = () => {
+  let changed = false
+  streak.unlockedStreakPets.forEach(id => {
+    if (!rewards.hasPet(id)) {
+      rewards.unlockedPets.push(id)
+      changed = true
+    }
+  })
+  if (changed) rewards.save()
+}
+
+syncStreakPets()
 
 onMounted(() => {
   dataMigration.initialize()
@@ -117,43 +214,49 @@ onUnmounted(() => {
   pomodoro.cleanup()
 })
 
-const getTabLabel = (tab) => {
-  const labels = {
-    shop: '🏪 Loja',
-    collection: '📚 Coleção',
-    excursions: '🧳 Excursões'
-  }
-  return labels[tab]
-}
-
 // Chamado pelo usePomodoro quando um ciclo termina naturalmente
 function handleCycleCompleted (mode) {
-  if (mode !== pomodoro.MODES.FOCUS) return
-
-  if (streak.recordFocusCompletion()) {
-    console.log('Ofensiva atualizada:', streak.currentStreak)
+  if (mode !== pomodoro.MODES.FOCUS) {
+    pushToast('☕', 'Pausa encerrada! Bora focar de novo?', 'info')
+    return
   }
-  rewards.addCoins(25)
+
+  rewards.addCoins(COINS_PER_FOCUS)
+  pushToast('🪙', `+${COINS_PER_FOCUS} moedas! Foco concluído`, 'coins')
+
+  const before = streak.unlockedStreakPets.length
+  if (streak.recordFocusCompletion()) {
+    pushToast('🔥', `Ofensiva: ${streak.currentStreak} ${streak.currentStreak === 1 ? 'dia' : 'dias'}!`, 'streak')
+  }
+
+  if (streak.unlockedStreakPets.length > before) {
+    const newPets = streak.getUnlockedStreakPets().slice(before)
+    newPets.forEach(pet => pushToast(pet.emoji, `Novo pet desbloqueado: ${pet.name}!`, 'pet'))
+    syncStreakPets()
+  }
 }
 
 const onPetPurchased = (petId) => {
-  if (rewards.unlockedPets.length === 1) {
-    rewards.setActivePet(petId)
-  }
+  const pet = rewards.getPetById(petId)
+  pushToast(pet?.emoji || '🎉', `${pet?.name || 'Pet'} entrou para a coleção!`, 'pet')
+  if (!rewards.activePetId) rewards.setActivePet(petId)
 }
 
 const onPetSelected = (petId) => {
-  rewards.setActivePet(petId)
+  const pet = rewards.getPetById(petId)
+  if (pet) pushToast(pet.emoji, `${pet.name} está com você agora!`, 'success')
 }
 
-const onExcursionStarted = () => {}
-const onExcursionClaimed = () => {}
+const onExcursionStarted = ({ petId, region }) => {
+  const pet = rewards.getPetById(petId)
+  const place = excursion.EXCURSION_CONFIG[region]
+  pushToast(place.emoji, `${pet?.name || 'Seu pet'} partiu para ${place.name}!`, 'info')
+}
 
-const getAllPets = () => [
-  ...rewards.SHOP_PETS,
-  ...streak.STREAK_PETS,
-  ...excursion.EXCURSION_PETS
-]
+const onExcursionClaimed = (reward) => {
+  pushToast('🪙', `+${reward.coins} moedas da excursão!`, 'coins')
+  if (reward.pet) pushToast(reward.pet.emoji, `Achado raro: ${reward.pet.name}!`, 'pet')
+}
 </script>
 
 <style lang="scss" scoped>
@@ -164,96 +267,225 @@ const getAllPets = () => [
   display: flex;
   flex-direction: column;
   min-height: 100vh;
-  background-color: $bg-secondary;
 }
 
-.app-header {
-  background: linear-gradient(135deg, $primary-color, $primary-dark);
-  color: white;
-  padding: $spacing-xl $spacing-lg;
-  box-shadow: $shadow-md;
+// ================= HUD =================
+.hud {
+  padding: $spacing-md 0;
+
+  @include md-up { padding: $spacing-lg 0 $spacing-md; }
 }
 
-.header-content {
+.hud-inner {
   @include flex-between;
-  max-width: 1280px;
-  margin: 0 auto;
-  width: 100%;
-}
-
-.app-title {
-  font-size: $font-size-3xl;
-  font-weight: $font-weight-bold;
-  margin: 0;
-}
-
-.header-stats {
-  @include flex-center;
-  gap: $spacing-lg;
-}
-
-.stat {
-  @include flex-center;
-  gap: $spacing-sm;
-  background: rgba(255, 255, 255, 0.2);
-  padding: $spacing-sm $spacing-lg;
-  border-radius: $radius-full;
-  font-weight: $font-weight-semibold;
-  backdrop-filter: blur(10px);
-}
-
-.app-main {
-  flex: 1;
-  padding: $spacing-xl $spacing-lg;
-}
-
-.content-grid {
-  display: grid;
-  grid-template-columns: 1fr;
-  gap: $spacing-2xl;
-  margin-bottom: $spacing-2xl;
-
-  @include md-up {
-    grid-template-columns: 2fr 1fr;
-  }
-}
-
-.timer-section {
-  @include card;
-}
-
-.pet-section {
-  display: flex;
-  flex-direction: column;
-  gap: $spacing-lg;
-}
-
-.tabs-navigation {
-  @include flex-center;
-  gap: $spacing-sm;
-  margin-bottom: $spacing-xl;
+  gap: $spacing-md;
   flex-wrap: wrap;
 }
 
-.tab-button {
-  @include btn-base;
-  background-color: $bg-primary;
-  border: 1px solid $border-color;
-  color: $text-primary;
+.brand {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+}
 
-  &:hover:not(:disabled) {
-    border-color: $primary-color;
-    color: $primary-color;
-  }
+.brand-badge {
+  @include flex-center;
+  width: 3rem;
+  height: 3rem;
+  font-size: 1.7rem;
+  background: $tomato;
+  border: $border-width solid $outline;
+  border-radius: 50%;
+  box-shadow: inset 0 -4px 0 $tomato-deep, 0 $ledge-sm 0 $outline;
+  animation: pp-wiggle 3s ease-in-out infinite;
 
-  &.active {
-    background-color: $primary-color;
-    color: white;
-    border-color: $primary-color;
+  @include md-up {
+    width: 3.5rem;
+    height: 3.5rem;
+    font-size: 2rem;
   }
 }
 
-.tab-pane {
-  @include slide-up;
+.brand-name {
+  font-family: $font-display;
+  font-weight: 700;
+  font-size: 1.75rem;
+  letter-spacing: 0.01em;
+  color: $tomato;
+  // Contorno grosso no texto, típico de logos de jogos
+  -webkit-text-stroke: 6px $outline;
+  paint-order: stroke fill;
+  text-shadow: 0 4px 0 $outline;
+
+  span { color: $sun; }
+
+  @include md-up { font-size: 2.25rem; }
+}
+
+.hud-stats {
+  display: flex;
+  align-items: center;
+  gap: $spacing-sm;
+
+  @include md-up { gap: $spacing-md; }
+}
+
+.stat-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 5.5rem;
+  padding: 0.2rem 0.9rem 0.2rem 0.2rem;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-radius: $radius-full;
+  box-shadow: 0 $ledge-sm 0 $outline;
+
+  .stat-icon {
+    @include flex-center;
+    width: 2.1rem;
+    height: 2.1rem;
+    font-size: 1.1rem;
+    border: $border-width solid $outline;
+    border-radius: 50%;
+  }
+
+  .stat-value {
+    font-family: $font-numbers;
+    font-weight: 900;
+    font-size: $font-size-lg;
+    font-variant-numeric: tabular-nums;
+  }
+
+  &.coins .stat-icon {
+    background: $sun;
+    box-shadow: inset 0 -3px 0 $sun-deep;
+  }
+
+  &.streak .stat-icon {
+    background: $tomato;
+    box-shadow: inset 0 -3px 0 $tomato-deep;
+  }
+
+  &.streak.off .stat-icon { filter: grayscale(1); }
+}
+
+.theme-toggle {
+  @include chunky-icon-btn(2.75rem);
+}
+
+// ================= Palco principal =================
+.app-main {
+  flex: 1;
+  padding: $spacing-md 0 $spacing-2xl;
+}
+
+.stage {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $spacing-2xl;
+  margin-top: $spacing-lg;
+
+  @include lg-up {
+    grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+    align-items: start;
+    gap: $spacing-xl;
+  }
+}
+
+.stage-side {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-2xl;
+}
+
+// ================= Menu =================
+.menu {
+  display: flex;
+  justify-content: center;
+  gap: $spacing-sm;
+  margin-top: $spacing-3xl;
+  padding: 0 $spacing-sm;
+
+  @include md-up { gap: $spacing-md; }
+}
+
+.menu-tab {
+  --tab: #{$surface};
+  --tab-deep: #{$surface-3};
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  flex: 1;
+  max-width: 11rem;
+  padding: 0.6rem 0.5rem 0.75rem;
+  font-family: $font-display;
+  font-weight: 600;
+  color: $ink;
+  background: var(--tab);
+  border: $border-width solid $outline;
+  border-radius: $radius-lg;
+  box-shadow: inset 0 -4px 0 var(--tab-deep), 0 $ledge 0 $outline;
+  transition: transform $transition-fast, box-shadow $transition-fast;
+
+  &:hover:not(.active) { transform: translateY(-3px); }
+
+  &:active { transform: translateY(3px); box-shadow: inset 0 -2px 0 var(--tab-deep), 0 1px 0 $outline; }
+
+  &.active {
+    color: $ink-on-color;
+    transform: translateY(-4px);
+  }
+
+  &.shop.active { --tab: #{$sun}; --tab-deep: #{$sun-deep}; }
+  &.collection.active { --tab: #{$grape}; --tab-deep: #{$grape-deep}; }
+  &.excursions.active { --tab: #{$mint}; --tab-deep: #{$mint-deep}; }
+}
+
+.menu-icon {
+  font-size: 1.75rem;
+  line-height: 1.2;
+
+  .menu-tab.active & { animation: pp-bob 1.8s ease-in-out infinite; }
+}
+
+.menu-label { font-size: $font-size-sm; @include md-up { font-size: $font-size-base; } }
+
+.menu-badge {
+  position: absolute;
+  top: -0.6rem;
+  right: -0.4rem;
+  @include flex-center;
+  min-width: 1.6rem;
+  height: 1.6rem;
+  padding: 0 0.35rem;
+  font-family: $font-numbers;
+  font-weight: 900;
+  font-size: $font-size-sm;
+  color: #fff;
+  background: $tomato-deep;
+  border: $border-width solid $outline;
+  border-radius: $radius-full;
+  animation: pp-pulse 1.2s ease-in-out infinite;
+}
+
+.menu-content {
+  margin-top: $spacing-2xl;
+}
+
+.swap-enter-active { animation: pp-slide-up 300ms $ease-bounce both; }
+.swap-leave-active { transition: opacity 120ms ease; }
+.swap-leave-to { opacity: 0; }
+
+// ================= Rodapé =================
+.app-footer {
+  padding: $spacing-lg 0 $spacing-xl;
+  text-align: center;
+  font-family: $font-display;
+  font-weight: 500;
+  color: $ink-faint;
 }
 </style>

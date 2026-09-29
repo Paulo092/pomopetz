@@ -55,6 +55,13 @@ export function usePomodoro({ onComplete } = {}) {
     return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
   })
 
+  const totalDuration = computed(() => MODE_DURATIONS[currentMode.value])
+
+  // 0 → 1 conforme o ciclo avança (usado no anel do timer)
+  const progress = computed(() =>
+    Math.min(1, Math.max(0, 1 - timeRemaining.value / totalDuration.value))
+  )
+
   const updateTabTitle = () => {
     document.title = isRunning.value
       ? `${formattedTime.value} · ${getModeLabel()} - Pomopetz`
@@ -211,6 +218,8 @@ export function usePomodoro({ onComplete } = {}) {
     completedFocusCount,
     lastCompletedMode,
     formattedTime,
+    totalDuration,
+    progress,
     start,
     pause,
     reset,

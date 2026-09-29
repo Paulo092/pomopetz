@@ -1,129 +1,283 @@
 <template>
-  <div class="active-pet">
-    <h3 class="pet-title">Seu Pet</h3>
-    <div class="pet-container">
-      <div v-if="pet" class="pet-card">
-        <div class="pet-emoji">{{ pet.emoji }}</div>
-        <div class="pet-name">{{ pet.name }}</div>
-        <div class="pet-info">
-          <span class="rarity" :class="pet.rarity">{{ rarityLabel }}</span>
-        </div>
-      </div>
-      <div v-else class="pet-empty">
-        <div class="empty-message">
-          <p>Nenhum pet selecionado</p>
-          <p class="text-small">Compre um pet na loja para começar!</p>
-        </div>
-      </div>
+  <section class="pet-panel">
+    <h2 class="ribbon">🐾 Seu Pet</h2>
+
+    <div class="scene" :class="[`mood-${mood}`, pet ? pet.rarity : 'empty']">
+      <span class="cloud c1" aria-hidden="true"></span>
+      <span class="cloud c2" aria-hidden="true"></span>
+
+      <template v-if="pet">
+        <Transition name="bubble">
+          <p v-if="bubble" :key="bubble" class="bubble">{{ bubble }}</p>
+        </Transition>
+
+        <button
+          class="pet"
+          :class="{ hopping }"
+          :aria-label="`Fazer carinho em ${pet.name}`"
+          @click="poke"
+          @animationend="hopping = false"
+        >
+          <span class="pet-emoji">{{ pet.emoji }}</span>
+        </button>
+        <span class="pet-shadow" aria-hidden="true"></span>
+
+        <span v-if="pet.rarity === 'legendary'" class="sparkles" aria-hidden="true">
+          <i></i><i></i><i></i>
+        </span>
+      </template>
+
+      <template v-else>
+        <div class="egg" aria-hidden="true">🥚</div>
+        <span class="pet-shadow" aria-hidden="true"></span>
+      </template>
+
+      <span class="hill" aria-hidden="true"></span>
     </div>
-  </div>
+
+    <div v-if="pet" class="nameplate">
+      <span class="pet-name">{{ pet.name }}</span>
+      <span class="rarity" :class="pet.rarity">{{ rarityLabel }}</span>
+    </div>
+    <p v-else class="empty-text">Nenhum pet ainda — passe na <strong>Loja</strong> para chocar o primeiro!</p>
+  </section>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch, onUnmounted } from 'vue'
 
 const props = defineProps({
-  pet: { type: Object, default: null }
+  pet: { type: Object, default: null },
+  // 'idle' | 'focus' | 'break'
+  mood: { type: String, default: 'idle' }
 })
 
-const rarityLabel = computed(() => {
-  const labels = {
-    common: 'Comum',
-    rare: 'Raro',
-    epic: 'Épico',
-    legendary: 'Lendário'
-  }
-  return labels[props.pet?.rarity] || 'Desconhecido'
-})
+const RARITY_LABELS = { common: 'Comum', rare: 'Raro', epic: 'Épico', legendary: 'Lendário' }
+const rarityLabel = computed(() => RARITY_LABELS[props.pet?.rarity] || '???')
+
+const POKE_LINES = [
+  'Hehe, faz cócegas!',
+  'Vamos focar juntos?',
+  'Você consegue! ✨',
+  'Mais um pomodoro? 🍅',
+  'Tô com fome de moedas 🪙',
+  '♥'
+]
+
+const MOOD_LINES = {
+  focus: '📖 Focando...',
+  break: '☕ Descansando~',
+  idle: ''
+}
+
+const bubble = ref('')
+const hopping = ref(false)
+let bubbleTimer = null
+
+const say = (text, duration = 2600) => {
+  clearTimeout(bubbleTimer)
+  bubble.value = text
+  if (duration) bubbleTimer = setTimeout(() => { bubble.value = MOOD_LINES[props.mood] }, duration)
+}
+
+const poke = () => {
+  hopping.value = false
+  requestAnimationFrame(() => { hopping.value = true })
+  say(POKE_LINES[Math.floor(Math.random() * POKE_LINES.length)])
+}
+
+watch(() => props.mood, (mood) => say(MOOD_LINES[mood], 0), { immediate: true })
+
+onUnmounted(() => clearTimeout(bubbleTimer))
 </script>
 
 <style lang="scss" scoped>
 @use '../styles/variables' as *;
 @use '../styles/mixins' as *;
 
-.active-pet {
-  @include card;
-  @include flex-column;
-  gap: $spacing-lg;
-}
-
-.pet-title {
-  margin: 0;
-  font-size: $font-size-lg;
-  color: $text-primary;
-}
-
-.pet-container {
+.pet-panel {
+  @include panel($spacing-xl $spacing-md $spacing-md);
   display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 200px;
+  flex-direction: column;
+  gap: $spacing-md;
+  margin-top: $spacing-md;
 }
 
-.pet-card {
-  @include flex-column;
-  @include flex-center;
-  gap: $spacing-md;
-  background: linear-gradient(135deg, rgba($primary-color, 0.1), rgba($primary-light, 0.1));
-  border: 2px solid $primary-light;
-  border-radius: $radius-lg;
-  padding: $spacing-xl;
-  text-align: center;
-  transition: transform $transition-base;
+.ribbon { @include ribbon($berry, $berry-deep); }
 
-  &:hover {
-    transform: scale(1.05);
+// ---------- Cenário ----------
+.scene {
+  position: relative;
+  height: 220px;
+  overflow: hidden;
+  border: $border-width solid $outline;
+  border-radius: $radius-lg;
+  background: linear-gradient($scene-sky-top, $scene-sky-bottom 75%);
+  isolation: isolate;
+}
+
+.hill {
+  position: absolute;
+  left: -15%;
+  right: -15%;
+  bottom: -62%;
+  height: 100%;
+  background: $scene-grass;
+  border-top: $border-width solid $outline;
+  border-radius: 50%;
+  box-shadow: inset 0 10px 0 color-mix(in srgb, white 25%, transparent);
+  z-index: 0;
+}
+
+.cloud {
+  position: absolute;
+  width: 70px;
+  height: 22px;
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: $radius-full;
+  z-index: -1;
+  animation: pp-cloud 38s linear infinite;
+
+  &::before {
+    content: '';
+    position: absolute;
+    left: 14px;
+    top: -12px;
+    width: 32px;
+    height: 28px;
+    background: inherit;
+    border-radius: 50%;
   }
+
+  &.c1 { top: 22px; left: 0; }
+  &.c2 { top: 62px; left: 0; width: 50px; animation-duration: 55s; animation-delay: -30s; opacity: 0.7; }
+}
+
+.pet {
+  position: absolute;
+  left: 50%;
+  bottom: 44px;
+  z-index: 2;
+  translate: -50% 0;
+  cursor: pointer;
+  border-radius: 50%;
 }
 
 .pet-emoji {
-  font-size: 4rem;
+  display: block;
+  font-size: 5.5rem;
   line-height: 1;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.15));
+  animation: pp-bob 2.6s ease-in-out infinite;
+
+  .mood-focus & { animation-duration: 4s; }
+  .mood-break & { animation: pp-wiggle 1.4s ease-in-out infinite; }
+}
+
+.pet.hopping .pet-emoji { animation: pp-hop 560ms $ease-bounce; }
+
+.pet-shadow {
+  position: absolute;
+  left: 50%;
+  bottom: 36px;
+  z-index: 1;
+  width: 78px;
+  height: 14px;
+  background: #000;
+  border-radius: 50%;
+  animation: pp-shadow-bob 2.6s ease-in-out infinite;
+}
+
+.egg {
+  position: absolute;
+  left: 50%;
+  bottom: 44px;
+  z-index: 2;
+  translate: -50% 0;
+  font-size: 4.5rem;
+  line-height: 1;
+  animation: pp-wiggle 1.8s ease-in-out infinite;
+}
+
+// Balão de fala
+.bubble {
+  position: absolute;
+  top: 14px;
+  left: 50%;
+  translate: -50% 0;
+  z-index: 3;
+  max-width: 80%;
+  padding: 0.45rem 0.9rem;
+  font-family: $font-display;
+  font-weight: 500;
+  font-size: $font-size-sm;
+  white-space: nowrap;
+  color: $ink;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-radius: $radius-md;
+  box-shadow: 0 $ledge-sm 0 $outline;
+
+  &::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    bottom: -9px;
+    width: 12px;
+    height: 12px;
+    background: $surface;
+    border-right: $border-width solid $outline;
+    border-bottom: $border-width solid $outline;
+    transform: translateX(-50%) rotate(45deg);
+  }
+}
+
+.bubble-enter-active { animation: pp-pop-in 300ms $ease-bounce both; }
+.bubble-leave-active { transition: opacity 150ms ease; }
+.bubble-leave-to { opacity: 0; }
+
+// Brilhos para lendários
+.sparkles i {
+  position: absolute;
+  z-index: 3;
+  width: 14px;
+  height: 14px;
+  background: $sun;
+  clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  animation: pp-twinkle 1.8s ease-in-out infinite;
+
+  &:nth-child(1) { left: 30%; bottom: 120px; }
+  &:nth-child(2) { right: 28%; bottom: 150px; animation-delay: 0.6s; }
+  &:nth-child(3) { right: 34%; bottom: 70px; animation-delay: 1.2s; width: 10px; height: 10px; }
+}
+
+// ---------- Placa de nome ----------
+.nameplate {
+  @include flex-between;
+  gap: $spacing-sm;
+  padding: 0.55rem 0.6rem 0.55rem 1rem;
+  @include well($radius-full);
 }
 
 .pet-name {
-  font-size: $font-size-lg;
-  font-weight: $font-weight-bold;
-  color: $text-primary;
-}
-
-.pet-info {
-  @include flex-center;
-  gap: $spacing-md;
-  width: 100%;
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: $font-size-xl;
+  @include truncate;
 }
 
 .rarity {
-  display: inline-block;
-  padding: $spacing-sm $spacing-md;
-  border-radius: $radius-full;
-  font-size: $font-size-sm;
-  font-weight: $font-weight-semibold;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-
-  &.common { background-color: rgba($text-secondary, 0.2); color: $text-secondary; }
-  &.rare { background-color: rgba($info-color, 0.2); color: $info-color; }
-  &.epic { background-color: rgba($primary-color, 0.2); color: $primary-color; }
-  &.legendary { background-color: rgba($warning-color, 0.2); color: $warning-color; }
+  @include rarity-vars;
+  @include chip(var(--r), $ink-on-color);
+  box-shadow: inset 0 -2px 0 var(--r-deep);
+  flex-shrink: 0;
 }
 
-.pet-empty {
-  @include flex-center;
-  width: 100%;
-  min-height: 200px;
+.empty-text {
   text-align: center;
-  color: $text-tertiary;
-}
-
-.empty-message {
-  @include flex-column;
-  gap: $spacing-md;
-}
-
-.text-small {
+  color: $ink-soft;
   font-size: $font-size-sm;
-  margin: 0;
-  opacity: 0.8;
+
+  strong { color: $ink; }
 }
 </style>

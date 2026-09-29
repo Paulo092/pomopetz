@@ -1,99 +1,94 @@
 <template>
-  <div class="excursion-panel">
-    <h2>🧳 Excursões de Pets</h2>
+  <section class="expedition">
+    <h2 class="ribbon">🗺️ Excursões</h2>
 
-    <div class="excursion-content">
-      <div class="section">
-        <h3>Em Andamento</h3>
-        <div v-if="activeExcursions.length === 0" class="empty-message">
-          <p>Nenhuma excursão em andamento</p>
-        </div>
-        <div v-else class="excursion-list">
-          <div v-for="(excursion, idx) in activeExcursions" :key="idx" class="excursion-item">
-            <div class="excursion-info">
-              <div class="pet-info">
-                <span class="pet-emoji">{{ getPetEmoji(excursion.petId) }}</span>
-                <div class="pet-details">
-                  <div class="pet-name">{{ getPetName(excursion.petId) }}</div>
-                  <div class="region-name">
-                    {{ getRegionConfig(excursion.region).emoji }} {{ getRegionConfig(excursion.region).name }}
-                  </div>
-                </div>
-              </div>
-              <div class="time-remaining">
-                {{ formatTimeRemaining(idx) }}
-              </div>
+    <!-- Pets que voltaram -->
+    <div v-if="readyExcursions.length" class="block">
+      <h3 class="block-title">🎁 Voltaram de viagem!</h3>
+      <ul class="trip-list">
+        <li v-for="trip in readyExcursions" :key="trip.index" class="trip ready" :class="trip.region">
+          <span class="trip-pet" aria-hidden="true">{{ getPet(trip.petId).emoji }}</span>
+          <div class="trip-info">
+            <p class="trip-name">{{ getPet(trip.petId).name }}</p>
+            <p class="trip-place">{{ region(trip.region).emoji }} {{ region(trip.region).name }}</p>
+          </div>
+          <button class="claim" @click="claimReward(trip.index)">
+            <span aria-hidden="true">🎁</span> Abrir
+          </button>
+        </li>
+      </ul>
+    </div>
+
+    <!-- Pets viajando -->
+    <div class="block">
+      <h3 class="block-title">🧭 A caminho</h3>
+      <p v-if="!activeExcursions.length" class="empty">Nenhum pet explorando agora. Escolha um destino abaixo!</p>
+      <ul v-else class="trip-list">
+        <li v-for="trip in activeExcursions" :key="trip.index" class="trip" :class="trip.region">
+          <span class="trip-pet walking" aria-hidden="true">{{ getPet(trip.petId).emoji }}</span>
+          <div class="trip-info">
+            <p class="trip-name">{{ getPet(trip.petId).name }}</p>
+            <p class="trip-place">{{ region(trip.region).emoji }} {{ region(trip.region).name }}</p>
+            <div class="trip-bar" role="progressbar" :aria-valuenow="Math.round(tripProgress(trip) * 100)" aria-valuemin="0" aria-valuemax="100">
+              <div class="trip-fill" :style="{ width: tripProgress(trip) * 100 + '%' }"></div>
             </div>
           </div>
-        </div>
-      </div>
+          <span class="trip-time">⏳ {{ timeLeft(trip) }}</span>
+        </li>
+      </ul>
+    </div>
 
-      <div class="section">
-        <h3>Prontas para Coletar</h3>
-        <div v-if="readyExcursions.length === 0" class="empty-message">
-          <p>Nenhuma excursão pronta</p>
-        </div>
-        <div v-else class="excursion-list">
-          <div v-for="(excursion, idx) in readyExcursions" :key="idx" class="excursion-item ready">
-            <div class="excursion-info">
-              <div class="pet-info">
-                <span class="pet-emoji">{{ getPetEmoji(excursion.petId) }}</span>
-                <div class="pet-details">
-                  <div class="pet-name">{{ getPetName(excursion.petId) }}</div>
-                  <div class="region-name">
-                    {{ getRegionConfig(excursion.region).emoji }} {{ getRegionConfig(excursion.region).name }}
-                  </div>
-                </div>
-              </div>
-            </div>
-            <button class="claim-button" @click="claimReward(excursion.index)">
-              ✅ Coletar
-            </button>
-          </div>
-        </div>
-      </div>
+    <!-- Destinos -->
+    <div class="block">
+      <h3 class="block-title">📍 Destinos</h3>
+      <p v-if="!availablePets.length && !activeExcursions.length" class="empty">
+        Você precisa de pelo menos um pet para explorar.
+      </p>
 
-      <div class="section">
-        <h3>Enviar para Excursão</h3>
-        <div v-if="rewards.getUnlockedPets().length === 0" class="empty-message">
-          <p>Você precisa ter pets desbloqueados para enviar em excursões</p>
-        </div>
-        <div v-else>
-          <div class="regions-grid">
-            <div v-for="region in Object.values(excursion.EXCURSION_REGIONS)" :key="region" class="region-card">
-              <div class="region-header">
-                <div class="region-emoji">{{ getRegionConfig(region).emoji }}</div>
-                <div class="region-name">{{ getRegionConfig(region).name }}</div>
-              </div>
-              <div class="region-details">
-                <div class="detail">
-                  <span class="label">Duração:</span>
-                  <span class="value">{{ formatDuration(getRegionConfig(region).duration) }}</span>
-                </div>
-                <div class="detail">
-                  <span class="label">Custo:</span>
-                  <span class="value">💰 {{ getRegionConfig(region).cost }}</span>
-                </div>
-              </div>
-              <select v-model="selectedPetPerRegion[region]" class="pet-select">
-                <option value="">-- Selecione um pet --</option>
-                <option v-for="pet in availablePets" :key="pet.id" :value="pet.id">
-                  {{ pet.emoji }} {{ pet.name }}
-                </option>
-              </select>
-              <button class="send-button" :disabled="!canSendExcursion(region)" @click="sendExcursion(region)">
-                🚀 Enviar
+      <div class="regions">
+        <article v-for="key in regionKeys" :key="key" class="region" :class="key">
+          <header class="region-banner">
+            <span class="region-emoji" aria-hidden="true">{{ region(key).emoji }}</span>
+            <h4 class="region-name">{{ region(key).name }}</h4>
+          </header>
+
+          <ul class="region-stats">
+            <li title="Duração">⏱️ {{ formatDuration(region(key).duration) }}</li>
+            <li title="Custo">🪙 {{ region(key).cost }}</li>
+            <li title="Chance de pet raro">🎁 {{ Math.round(region(key).petDropChance * 100) }}%</li>
+          </ul>
+
+          <fieldset class="picker">
+            <legend class="picker-legend">Quem vai?</legend>
+            <p v-if="!availablePets.length" class="picker-empty">Todos os pets estão viajando</p>
+            <div v-else class="picker-row">
+              <button
+                v-for="pet in availablePets"
+                :key="pet.id"
+                class="pick"
+                :class="{ selected: selected[key] === pet.id }"
+                :aria-pressed="selected[key] === pet.id"
+                :title="pet.name"
+                :aria-label="pet.name"
+                @click="selected[key] = selected[key] === pet.id ? null : pet.id"
+              >
+                {{ pet.emoji }}
               </button>
             </div>
-          </div>
-        </div>
+          </fieldset>
+
+          <button class="send" :disabled="!canSend(key)" @click="sendExcursion(key)">
+            <template v-if="rewards.coins < region(key).cost">🔒 Faltam {{ region(key).cost - rewards.coins }} 🪙</template>
+            <template v-else>🚀 Enviar</template>
+          </button>
+        </article>
       </div>
     </div>
-  </div>
+  </section>
 </template>
 
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 
 const props = defineProps({
   excursion: { type: Object, required: true },
@@ -103,224 +98,339 @@ const props = defineProps({
 
 const emit = defineEmits(['excursion-started', 'excursion-claimed'])
 
-const selectedPetPerRegion = ref({})
-let updateInterval = null
+// Relógio reativo: Date.now() sozinho não dispara re-render
+const now = ref(Date.now())
+let clock = null
+onMounted(() => { clock = setInterval(() => { now.value = Date.now() }, 1000) })
+onUnmounted(() => clearInterval(clock))
 
-onMounted(() => {
-  updateInterval = setInterval(() => {}, 1000)
-})
+const selected = reactive({})
 
-onUnmounted(() => {
-  if (updateInterval) clearInterval(updateInterval)
-})
+const regionKeys = computed(() => Object.values(props.excursion.EXCURSION_REGIONS))
+const region = (key) => props.excursion.EXCURSION_CONFIG[key]
 
-const activeExcursions = computed(() => props.excursion.getActiveExcursions())
-const readyExcursions = computed(() => props.excursion.getReadyExcursions())
-const availablePets = computed(() => props.rewards.getUnlockedPets())
+const trips = computed(() =>
+  props.excursion.activeExcursions
+    .map((trip, index) => ({ ...trip, index }))
+    .filter(trip => !trip.claimed)
+)
 
-const getRegionConfig = (region) => props.excursion.EXCURSION_CONFIG[region]
-const getPetEmoji = (petId) => {
-  const pet = props.pets.find(p => p.id === petId)
-  return pet?.emoji || '❓'
+const activeExcursions = computed(() =>
+  trips.value
+    .filter(trip => trip.returnTimestamp > now.value)
+    .sort((a, b) => a.returnTimestamp - b.returnTimestamp)
+)
+
+const readyExcursions = computed(() =>
+  trips.value.filter(trip => trip.returnTimestamp <= now.value)
+)
+
+const awayIds = computed(() => new Set(trips.value.map(t => t.petId)))
+
+const availablePets = computed(() =>
+  props.rewards.getUnlockedPets().filter(pet => !awayIds.value.has(pet.id))
+)
+
+const UNKNOWN_PET = { emoji: '❓', name: 'Desconhecido' }
+const getPet = (petId) => props.pets.find(p => p.id === petId) || UNKNOWN_PET
+
+const tripProgress = (trip) => {
+  const duration = region(trip.region).duration
+  const remaining = Math.max(0, trip.returnTimestamp - now.value)
+  return Math.min(1, 1 - remaining / duration)
 }
 
-const getPetName = (petId) => {
-  const pet = props.pets.find(p => p.id === petId)
-  return pet?.name || 'Desconhecido'
+const timeLeft = (trip) => {
+  const total = Math.max(0, Math.floor((trip.returnTimestamp - now.value) / 1000))
+  const h = Math.floor(total / 3600)
+  const m = Math.floor((total % 3600) / 60)
+  const s = total % 60
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`
+  return `${s}s`
 }
 
-const formatTimeRemaining = (idx) => {
-  return props.excursion.formatTimeRemaining(activeExcursions.value[idx].index)
+const formatDuration = (ms) => `${Math.round(ms / 3600000)}h`
+
+const canSend = (key) => {
+  const petId = selected[key]
+  return !!petId &&
+    !awayIds.value.has(petId) &&
+    props.excursion.canStartExcursion(petId, key, props.rewards.coins)
 }
 
-const formatDuration = (ms) => {
-  const hours = Math.floor(ms / (1000 * 60 * 60))
-  return `${hours}h`
-}
-
-const canSendExcursion = (region) => {
-  const petId = parseInt(selectedPetPerRegion.value[region])
-  return petId && props.excursion.canStartExcursion(petId, region, props.rewards.coins)
-}
-
-const sendExcursion = (region) => {
-  const petId = parseInt(selectedPetPerRegion.value[region])
-  if (!canSendExcursion(region)) return
-  const cost = props.excursion.getExcursionCost(region)
-  if (props.rewards.removeCoins(cost)) {
-    props.excursion.startExcursion(petId, region)
-    selectedPetPerRegion.value[region] = ''
-    emit('excursion-started')
+const sendExcursion = (key) => {
+  if (!canSend(key)) return
+  const petId = selected[key]
+  if (props.rewards.removeCoins(props.excursion.getExcursionCost(key))) {
+    props.excursion.startExcursion(petId, key)
+    selected[key] = null
+    now.value = Date.now()
+    emit('excursion-started', { petId, region: key })
   }
 }
 
-const claimReward = (excursionIndex) => {
-  const reward = props.excursion.completeExcursion(excursionIndex)
-  if (reward) { emit('excursion-claimed') }
+const claimReward = (index) => {
+  const reward = props.excursion.completeExcursion(index)
+  if (reward) emit('excursion-claimed', reward)
 }
 </script>
 
 <style lang="scss" scoped>
 @use '../styles/variables' as *;
 @use '../styles/mixins' as *;
-@use "sass:color";
 
-.excursion-panel { @include card; }
+.expedition {
+  @include panel($spacing-2xl $spacing-md $spacing-lg);
+  @include stitched;
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-xl;
 
-.excursion-content {
-  @include flex-column;
-  gap: $spacing-2xl;
+  @include md-up { padding: $spacing-2xl $spacing-xl $spacing-xl; }
 }
 
-.section {
-  @include flex-column;
-  gap: $spacing-lg;
+.ribbon { @include ribbon($mint, $mint-deep); }
 
-  h3 {
-    margin: 0;
-    font-size: $font-size-lg;
-    color: $text-primary;
-  }
-}
-
-.empty-message {
-  text-align: center;
-  padding: $spacing-xl;
-  background-color: $bg-tertiary;
-  border-radius: $radius-lg;
-  color: $text-secondary;
-
-  p { margin: 0; }
-}
-
-.excursion-list {
-  @include flex-column;
+.block {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
   gap: $spacing-md;
 }
 
-.excursion-item {
+.block-title {
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: $font-size-xl;
+}
+
+.empty {
+  padding: $spacing-md;
+  text-align: center;
+  font-size: $font-size-sm;
+  color: $ink-soft;
+  @include well;
+}
+
+// Cores por região
+.forest { --reg: #7cc46b; --reg-deep: #4f9a45; }
+.mountain { --reg: #{$grape}; --reg-deep: #{$grape-deep}; }
+.ocean { --reg: #{$sky}; --reg-deep: #{$sky-deep}; }
+.volcano { --reg: #{$tomato}; --reg-deep: #{$tomato-deep}; }
+
+// ---------- Viagens ----------
+.trip-list {
+  display: flex;
+  flex-direction: column;
+  gap: $spacing-sm;
+}
+
+.trip {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: $spacing-lg;
-  background-color: $bg-tertiary;
+  gap: $spacing-md;
+  padding: 0.6rem 0.9rem 0.6rem 0.6rem;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-left-width: 10px;
+  border-left-color: var(--reg);
   border-radius: $radius-lg;
-  border-left: 4px solid $info-color;
+  box-shadow: 0 $ledge-sm 0 $outline;
+  animation: pp-slide-up 300ms $ease-bounce both;
 
   &.ready {
-    border-left-color: $success-color;
-    background: linear-gradient(135deg, rgba($success-color, 0.05), rgba($success-color, 0.02));
+    background: color-mix(in srgb, #{$sun} 22%, var(--pp-surface));
+    border-left-color: $sun;
   }
 }
 
-.excursion-info {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  flex: 1;
-  gap: $spacing-lg;
-}
-
-.pet-info {
-  display: flex;
-  align-items: center;
-  gap: $spacing-md;
-}
-
-.pet-emoji { font-size: $font-size-2xl; }
-
-.pet-details { @include flex-column; }
-
-.pet-name {
-  font-weight: $font-weight-semibold;
-  color: $text-primary;
-}
-
-.region-name {
-  font-size: $font-size-sm;
-  color: $text-secondary;
-}
-
-.time-remaining {
-  font-weight: $font-weight-bold;
-  color: $warning-color;
-  font-family: $font-family-mono;
-  white-space: nowrap;
-}
-
-.claim-button {
-  @include btn-base;
-  @include btn-primary;
-  background-color: $success-color;
-  padding: $spacing-md $spacing-lg;
-
-  &:hover:not(:disabled) {
-    background-color: color.adjust($success-color, $lightness: -10%);
-  }
-}
-
-.regions-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: $spacing-lg;
-}
-
-.region-card {
-  @include flex-column;
-  gap: $spacing-md;
-  padding: $spacing-lg;
-  background-color: $bg-tertiary;
-  border: 2px solid $border-color;
-  border-radius: $radius-lg;
-  transition: all $transition-base;
-
-  &:hover {
-    border-color: $primary-color;
-    box-shadow: $shadow-md;
-  }
-}
-
-.region-header {
-  @include flex-column;
+.trip-pet {
   @include flex-center;
-  gap: $spacing-sm;
+  flex-shrink: 0;
+  width: 3.2rem;
+  height: 3.2rem;
+  font-size: 2rem;
+  background: var(--reg);
+  border: $border-width solid $outline;
+  border-radius: 50%;
+  box-shadow: inset 0 -4px 0 var(--reg-deep);
+
+  &.walking { animation: pp-walk 0.9s ease-in-out infinite; }
+  .ready & { animation: pp-pulse 1.2s ease-in-out infinite; }
 }
 
-.region-emoji { font-size: $font-size-3xl; }
+.trip-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.trip-name {
+  font-family: $font-display;
+  font-weight: 600;
+  @include truncate;
+}
+
+.trip-place {
+  font-size: $font-size-sm;
+  color: $ink-soft;
+}
+
+.trip-bar {
+  @include progress-track(0.8rem);
+  margin-top: 0.25rem;
+  border-width: 2px;
+}
+
+.trip-fill { @include progress-fill(var(--reg), var(--reg-deep)); }
+
+.trip-time {
+  flex-shrink: 0;
+  font-family: $font-numbers;
+  font-weight: 900;
+  font-size: $font-size-sm;
+  font-variant-numeric: tabular-nums;
+}
+
+.claim {
+  @include chunky-btn($sun, $sun-deep);
+  flex-shrink: 0;
+  animation: pp-pulse 1.4s ease-in-out infinite;
+}
+
+// ---------- Destinos ----------
+.regions {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: $spacing-lg;
+}
+
+.region {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 0.6rem 0.6rem 0.9rem;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-radius: $radius-lg;
+  box-shadow: 0 $ledge 0 $outline;
+  transition: transform $transition-base $ease-bounce;
+
+  &:hover { transform: translateY(-3px); }
+}
+
+.region-banner {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 1rem 0.9rem;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 85% 20%, rgba(255, 255, 255, 0.45), transparent 45%),
+    linear-gradient(160deg, var(--reg), var(--reg-deep));
+  border: $border-width solid $outline;
+  border-radius: $radius-md;
+
+  &::after {
+    // "chão" do mapa
+    content: '';
+    position: absolute;
+    left: -10%;
+    right: -10%;
+    bottom: -60%;
+    height: 90%;
+    background: rgba(0, 0, 0, 0.12);
+    border-radius: 50%;
+  }
+}
+
+.region-emoji {
+  position: relative;
+  z-index: 1;
+  font-size: 2.6rem;
+  line-height: 1;
+  filter: drop-shadow(0 3px 0 rgba(0, 0, 0, 0.2));
+}
 
 .region-name {
-  font-weight: $font-weight-semibold;
-  color: $text-primary;
-  text-align: center;
+  position: relative;
+  z-index: 1;
+  font-family: $font-display;
+  font-weight: 700;
+  font-size: $font-size-xl;
+  color: #fff;
+  -webkit-text-stroke: 5px $ink-on-color;
+  paint-order: stroke fill;
 }
 
-.region-details {
-  @include flex-column;
-  gap: $spacing-sm;
-  padding: $spacing-md;
-  background-color: $bg-primary;
-  border-radius: $radius-md;
+.region-stats {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.25rem;
+
+  li {
+    flex: 1;
+    padding: 0.35rem 0.25rem;
+    text-align: center;
+    font-family: $font-numbers;
+    font-weight: 900;
+    font-size: $font-size-sm;
+    @include well($radius-sm);
+  }
 }
 
-.detail {
-  @include flex-between;
+.picker {
+  border: none;
+  min-width: 0;
+}
+
+.picker-legend {
+  margin-bottom: 0.35rem;
+  font-size: $font-size-xs;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: $ink-faint;
+}
+
+.picker-empty {
   font-size: $font-size-sm;
+  color: $ink-faint;
 }
 
-.label { color: $text-secondary; }
-.value {
-  font-weight: $font-weight-semibold;
-  color: $text-primary;
+.picker-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
 }
 
-.pet-select { @include input-base; padding: $spacing-md; }
+.pick {
+  @include flex-center;
+  width: 2.6rem;
+  height: 2.6rem;
+  font-size: 1.5rem;
+  background: $surface-2;
+  border: $border-width solid $outline;
+  border-radius: $radius-md;
+  transition: transform $transition-fast $ease-bounce, background $transition-fast;
 
-.send-button {
-  @include btn-base;
-  @include btn-primary;
-  padding: $spacing-md;
+  &:hover { transform: translateY(-2px) rotate(-6deg); }
+
+  &.selected {
+    background: var(--reg);
+    box-shadow: inset 0 -3px 0 var(--reg-deep), 0 0 0 3px var(--pp-surface), 0 0 0 6px var(--reg);
+    transform: scale(1.08);
+  }
+}
+
+.send {
+  @include chunky-btn(var(--reg), var(--reg-deep));
   width: 100%;
-
-  &:disabled { opacity: 0.5; }
+  margin-top: auto;
 }
 </style>

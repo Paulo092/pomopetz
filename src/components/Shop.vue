@@ -1,25 +1,50 @@
 <template>
-  <div class="shop">
-    <h2>Loja de Pets</h2>
-    <p class="shop-subtitle">Suas moedas: <strong>💰 {{ rewards.coins }}</strong></p>
-    <div class="pets-grid">
-      <div v-for="pet in rewards.SHOP_PETS" :key="pet.id" class="pet-card" :class="{ unlocked: rewards.hasPet(pet.id) }">
-        <div class="pet-header">
-          <span class="pet-emoji">{{ pet.emoji }}</span>
-          <span class="rarity-badge" :class="pet.rarity">{{ rarityLabel(pet.rarity) }}</span>
-        </div>
-        <h3 class="pet-card-name">{{ pet.name }}</h3>
-        <div class="pet-price">
-          <span class="price-icon">💰</span>
-          <span class="price-value">{{ pet.price }}</span>
-        </div>
-        <button v-if="!rewards.hasPet(pet.id)" class="buy-button" :disabled="!rewards.canBuy(pet.id)" @click="buyPet(pet.id)">
-          {{ rewards.coins >= pet.price ? '🛒 Comprar' : '💸 Sem moedas' }}
-        </button>
-        <div v-else class="owned-badge">✅ Possuído</div>
+  <section class="shop">
+    <h2 class="ribbon">🏪 Loja de Pets</h2>
+
+    <div class="shop-header">
+      <span class="keeper" aria-hidden="true">🦝</span>
+      <p class="keeper-line">
+        Bem-vindo! Cada foco concluído rende <strong>🪙 25</strong>. O que vai levar hoje?
+      </p>
+      <div class="wallet">
+        <span class="wallet-icon" aria-hidden="true">🪙</span>
+        <span class="wallet-value">{{ rewards.coins }}</span>
       </div>
     </div>
-  </div>
+
+    <ul class="grid">
+      <li
+        v-for="pet in rewards.SHOP_PETS"
+        :key="pet.id"
+        class="item"
+        :class="[pet.rarity, { owned: rewards.hasPet(pet.id), poor: !rewards.hasPet(pet.id) && !rewards.canBuy(pet.id) }]"
+      >
+        <div class="item-art">
+          <span class="item-emoji" aria-hidden="true">{{ pet.emoji }}</span>
+          <span class="item-rarity">{{ rarityLabel(pet.rarity) }}</span>
+          <span v-if="rewards.hasPet(pet.id)" class="stamp">Adquirido</span>
+        </div>
+
+        <h3 class="item-name">{{ pet.name }}</h3>
+
+        <button
+          v-if="!rewards.hasPet(pet.id)"
+          class="buy"
+          :disabled="!rewards.canBuy(pet.id)"
+          :aria-label="`Comprar ${pet.name} por ${pet.price} moedas`"
+          @click="buyPet(pet.id)"
+        >
+          <span aria-hidden="true">🪙</span> {{ pet.price }}
+        </button>
+        <p v-else class="owned-note">✓ Na coleção</p>
+
+        <p v-if="!rewards.hasPet(pet.id) && !rewards.canBuy(pet.id)" class="missing">
+          faltam {{ pet.price - rewards.coins }}
+        </p>
+      </li>
+    </ul>
+  </section>
 </template>
 
 <script setup>
@@ -29,10 +54,8 @@ const props = defineProps({
 
 const emit = defineEmits(['pet-purchased'])
 
-const rarityLabel = (rarity) => {
-  const labels = { common: 'Comum', rare: 'Raro', epic: 'Épico', legendary: 'Lendário' }
-  return labels[rarity]
-}
+const RARITY_LABELS = { common: 'Comum', rare: 'Raro', epic: 'Épico', legendary: 'Lendário' }
+const rarityLabel = (rarity) => RARITY_LABELS[rarity]
 
 const buyPet = (petId) => {
   if (props.rewards.buyPet(petId)) {
@@ -46,102 +69,190 @@ const buyPet = (petId) => {
 @use '../styles/mixins' as *;
 
 .shop {
-  @include card;
+  @include panel($spacing-2xl $spacing-md $spacing-lg);
+  @include stitched;
+
+  @include md-up { padding: $spacing-2xl $spacing-xl $spacing-xl; }
 }
 
-.shop-subtitle {
-  color: $text-secondary;
+.ribbon { @include ribbon($sun, $sun-deep); }
+
+// ---------- Balcão ----------
+.shop-header {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: $spacing-md;
   margin-bottom: $spacing-xl;
+  padding: 0.75rem 0.75rem 0.75rem 1rem;
+  @include well;
+  flex-wrap: wrap;
 }
 
-.pets-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: $spacing-lg;
-
-  @include md-up {
-    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
-  }
+.keeper {
+  font-size: 2.4rem;
+  line-height: 1;
+  animation: pp-bob 2.2s ease-in-out infinite;
 }
 
-.pet-card {
-  @include flex-column;
-  gap: $spacing-sm;
-  background-color: $bg-primary;
-  border: 2px solid $border-color;
-  border-radius: $radius-lg;
-  padding: $spacing-lg;
-  text-align: center;
-  transition: all $transition-base;
+.keeper-line {
+  flex: 1;
+  min-width: 12rem;
+  font-size: $font-size-sm;
+  color: $ink-soft;
 
-  &:hover {
-    border-color: $primary-color;
-    box-shadow: $shadow-md;
-    transform: translateY(-4px);
-  }
-
-  &.unlocked {
-    border-color: $success-color;
-    background: linear-gradient(135deg, rgba($success-color, 0.05), rgba($success-color, 0.02));
-  }
+  strong { color: $ink; white-space: nowrap; }
 }
 
-.pet-header {
-  @include flex-between;
-  margin-bottom: $spacing-sm;
+.wallet {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 1rem 0.25rem 0.25rem;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-radius: $radius-full;
+  box-shadow: 0 $ledge-sm 0 $outline;
 }
 
-.pet-emoji {
-  font-size: $font-size-3xl;
-}
-
-.rarity-badge {
-  display: inline-block;
-  padding: $spacing-xs $spacing-sm;
-  border-radius: $radius-sm;
-  font-size: $font-size-xs;
-  font-weight: $font-weight-bold;
-  text-transform: uppercase;
-
-  &.common { background-color: rgba($text-secondary, 0.2); color: $text-secondary; }
-  &.rare { background-color: rgba($info-color, 0.2); color: $info-color; }
-  &.epic { background-color: rgba($primary-color, 0.2); color: $primary-color; }
-  &.legendary { background-color: rgba($warning-color, 0.2); color: $warning-color; }
-}
-
-.pet-card-name {
-  margin: 0;
-  font-size: $font-size-base;
-  color: $text-primary;
-}
-
-.pet-price {
+.wallet-icon {
   @include flex-center;
-  gap: $spacing-xs;
-  padding: $spacing-md;
-  background-color: $bg-tertiary;
-  border-radius: $radius-md;
-  font-weight: $font-weight-semibold;
+  width: 2.2rem;
+  height: 2.2rem;
+  background: $sun;
+  border: $border-width solid $outline;
+  border-radius: 50%;
+  box-shadow: inset 0 -3px 0 $sun-deep;
 }
 
-.buy-button {
-  @include btn-base;
-  @include btn-primary;
-  width: 100%;
-  padding: $spacing-md;
-  font-size: $font-size-sm;
+.wallet-value {
+  font-family: $font-numbers;
+  font-weight: 900;
+  font-size: $font-size-xl;
+  font-variant-numeric: tabular-nums;
+}
 
-  &:disabled {
-    opacity: 0.5;
+// ---------- Vitrine ----------
+.grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(145px, 1fr));
+  gap: $spacing-lg $spacing-md;
+}
+
+.item {
+  @include rarity-vars;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.6rem 0.6rem 0.9rem;
+  text-align: center;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-radius: $radius-lg;
+  box-shadow: 0 $ledge 0 $outline;
+  transition: transform $transition-base $ease-bounce;
+  animation: pp-slide-up 320ms $ease-bounce both;
+
+  @for $i from 1 through 8 {
+    &:nth-child(#{$i}) { animation-delay: #{($i - 1) * 45}ms; }
+  }
+
+  &:hover { transform: translateY(-4px) rotate(-0.6deg); }
+}
+
+.item-art {
+  position: relative;
+  @include flex-center;
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 65%, rgba(255, 255, 255, 0.55), transparent 55%),
+    var(--r);
+  border: $border-width solid $outline;
+  border-radius: $radius-md;
+  box-shadow: inset 0 -5px 0 var(--r-deep);
+
+  // reflexo que atravessa os cards lendários
+  .legendary &::after {
+    content: '';
+    position: absolute;
+    top: -20%;
+    left: 0;
+    width: 30%;
+    height: 140%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+    animation: pp-shine 2.8s ease-in-out infinite;
   }
 }
 
-.owned-badge {
-  padding: $spacing-md;
-  background-color: rgba($success-color, 0.1);
-  color: $success-color;
-  border-radius: $radius-md;
-  font-weight: $font-weight-semibold;
-  font-size: $font-size-sm;
+.item-emoji {
+  font-size: 3.6rem;
+  line-height: 1;
+  filter: drop-shadow(0 4px 0 rgba(0, 0, 0, 0.18));
+  transition: transform $transition-base $ease-bounce;
+
+  .item:hover & { transform: scale(1.12) rotate(-6deg); }
 }
+
+.item-rarity {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  @include chip($surface, $ink);
+  font-size: 0.65rem;
+  padding: 0.25em 0.6em;
+}
+
+.stamp {
+  position: absolute;
+  bottom: 0.5rem;
+  right: -0.2rem;
+  padding: 0.2rem 0.6rem;
+  font-family: $font-display;
+  font-weight: 700;
+  font-size: $font-size-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: $mint-deep;
+  background: #fff;
+  border: 2px solid $mint-deep;
+  border-radius: $radius-sm;
+  transform: rotate(-10deg);
+  animation: pp-pop-in 300ms $ease-bounce both;
+}
+
+.item-name {
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: $font-size-lg;
+  line-height: 1.1;
+}
+
+.buy {
+  @include chunky-btn($sun, $sun-deep);
+  width: 100%;
+  font-family: $font-numbers;
+  font-weight: 900;
+  font-size: $font-size-lg;
+}
+
+.owned-note {
+  font-family: $font-display;
+  font-weight: 600;
+  color: $mint-deep;
+  padding: 0.55rem 0;
+}
+
+.missing {
+  margin-top: -0.3rem;
+  font-size: $font-size-xs;
+  color: $ink-faint;
+}
+
+.owned .item-art { filter: saturate(0.85); }
 </style>

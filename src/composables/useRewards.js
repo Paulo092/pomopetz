@@ -1,4 +1,6 @@
 import { ref } from 'vue'
+import { STREAK_PETS } from './useStreak'
+import { EXCURSION_PETS } from './useExcursion'
 
 const STORAGE_KEY = 'pomopetz_rewards'
 
@@ -79,9 +81,12 @@ export function useRewards() {
     return false
   }
 
-  const getActivePet = () => SHOP_PETS.find(p => p.id === activePetId.value)
+  // Catálogo completo: loja + ofensiva + excursão
+  const ALL_PETS = [...SHOP_PETS, ...STREAK_PETS, ...EXCURSION_PETS]
 
-  const getPetById = (petId) => SHOP_PETS.find(p => p.id === petId)
+  const getActivePet = () => ALL_PETS.find(p => p.id === activePetId.value) || null
+
+  const getPetById = (petId) => ALL_PETS.find(p => p.id === petId)
 
   const getUnlockedPets = () => unlockedPets.value.map(id => getPetById(id)).filter(Boolean)
 
@@ -94,5 +99,5 @@ export function useRewards() {
 
   initialize()
 
-  return { coins, unlockedPets, activePetId, addCoins, removeCoins, buyPet, setActivePet, getActivePet, getPetById, getUnlockedPets, hasPet, canBuy, SHOP_PETS, save }
+  return { coins, unlockedPets, activePetId, addCoins, removeCoins, buyPet, setActivePet, getActivePet, getPetById, getUnlockedPets, hasPet, canBuy, SHOP_PETS, ALL_PETS, save }
 }

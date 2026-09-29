@@ -1,55 +1,21 @@
+@use 'sass:map';
+@use 'sass:list';
 @use './variables' as *;
 
 // === RESPONSIVIDADE ===
-@mixin mobile-only {
-  @media (max-width: ($breakpoint-sm - 1px)) {
-    @content;
-  }
-}
+@mixin mobile-only { @media (max-width: ($breakpoint-sm - 1px)) { @content; } }
+@mixin sm-up { @media (min-width: $breakpoint-sm) { @content; } }
+@mixin md-up { @media (min-width: $breakpoint-md) { @content; } }
+@mixin lg-up { @media (min-width: $breakpoint-lg) { @content; } }
+@mixin xl-up { @media (min-width: $breakpoint-xl) { @content; } }
 
-@mixin sm-up {
-  @media (min-width: $breakpoint-sm) {
-    @content;
-  }
-}
-
-@mixin md-up {
-  @media (min-width: $breakpoint-md) {
-    @content;
-  }
-}
-
-@mixin lg-up {
-  @media (min-width: $breakpoint-lg) {
-    @content;
-  }
-}
-
-@mixin xl-up {
-  @media (min-width: $breakpoint-xl) {
-    @content;
-  }
-}
+@mixin reduced-motion { @media (prefers-reduced-motion: reduce) { @content; } }
 
 // === FLEXBOX ===
-@mixin flex-center {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
+@mixin flex-center { display: flex; align-items: center; justify-content: center; }
+@mixin flex-between { display: flex; align-items: center; justify-content: space-between; }
+@mixin flex-column { display: flex; flex-direction: column; }
 
-@mixin flex-between {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-@mixin flex-column {
-  display: flex;
-  flex-direction: column;
-}
-
-// === POSICIONAMENTO ===
 @mixin absolute-center {
   position: absolute;
   top: 50%;
@@ -57,11 +23,32 @@
   transform: translate(-50%, -50%);
 }
 
-// === TRUNCAMENTO DE TEXTO ===
 @mixin truncate {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+@mixin visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+// === RARIDADE ===
+@function rarity-color($rarity) { @return list.nth(map.get($rarity-colors, $rarity), 1); }
+@function rarity-deep($rarity) { @return list.nth(map.get($rarity-colors, $rarity), 2); }
+
+// Gera .common/.rare/.epic/.legendary definindo --r e --r-deep
+@mixin rarity-vars {
+  @each $name, $pair in $rarity-colors {
+    &.#{$name} {
+      --r: #{list.nth($pair, 1)};
+      --r-deep: #{list.nth($pair, 2)};
+    }
+  }
 }
 
 // === BOTÕES ===
@@ -72,119 +59,195 @@
   cursor: pointer;
   font: inherit;
   color: inherit;
-  
-  &:disabled {
-    cursor: not-allowed;
-    opacity: 0.5;
-  }
+  -webkit-tap-highlight-color: transparent;
+
+  &:disabled { cursor: not-allowed; }
 }
 
-@mixin btn-base {
+// Botão "gordinho" com degrau sólido que afunda ao clicar.
+// $bg / $deep aceitam cores Sass OU var(--x).
+@mixin chunky-btn($bg: $tomato, $deep: $tomato-deep, $fg: $ink-on-color, $radius: $radius-full) {
   @include btn-reset;
-  @include flex-center;
-  padding: $spacing-md $spacing-lg;
-  border-radius: $radius-lg;
-  font-weight: $font-weight-semibold;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45em;
+  padding: 0.7em 1.35em;
+  font-family: $font-display;
+  font-weight: 600;
   font-size: $font-size-base;
-  transition: all $transition-base;
-  gap: $spacing-sm;
-  
+  letter-spacing: 0.02em;
+  line-height: 1;
+  color: $fg;
+  background: $bg;
+  border: $border-width solid $outline;
+  border-radius: $radius;
+  box-shadow:
+    inset 0 -4px 0 $deep,
+    inset 0 3px 0 rgba(255, 255, 255, 0.45),
+    0 $ledge 0 $outline;
+  transform: translateY(0);
+  transition: transform $transition-fast, box-shadow $transition-fast, filter $transition-fast;
+  user-select: none;
+
   &:hover:not(:disabled) {
+    filter: brightness(1.06);
     transform: translateY(-2px);
-    box-shadow: $shadow-md;
+    box-shadow:
+      inset 0 -4px 0 $deep,
+      inset 0 3px 0 rgba(255, 255, 255, 0.45),
+      0 ($ledge + 2px) 0 $outline;
   }
-  
+
   &:active:not(:disabled) {
-    transform: translateY(0);
+    transform: translateY($ledge - 1px);
+    box-shadow:
+      inset 0 -2px 0 $deep,
+      inset 0 2px 0 rgba(255, 255, 255, 0.35),
+      0 1px 0 $outline;
+  }
+
+  &:disabled {
+    filter: grayscale(0.85) opacity(0.6);
   }
 }
 
-@mixin btn-primary {
-  @include btn-base;
-  background-color: $primary-color;
-  color: white;
-  
-  &:hover:not(:disabled) {
-    background-color: $primary-dark;
+// Botão redondo só com ícone
+@mixin chunky-icon-btn($size: 3.25rem, $bg: $surface, $deep: $surface-3, $fg: $ink) {
+  @include chunky-btn($bg, $deep, $fg);
+  width: $size;
+  height: $size;
+  padding: 0;
+  font-size: $size * 0.42;
+}
+
+// Compatibilidade com o código antigo
+@mixin btn-base { @include chunky-btn($surface, $surface-3, $ink); }
+@mixin btn-primary { @include chunky-btn($tomato, $tomato-deep); }
+@mixin btn-secondary { @include chunky-btn($surface, $surface-3, $ink); }
+
+// === PAINÉIS ===
+// Painel de "papel" com contorno grosso e degrau
+@mixin panel($padding: $spacing-lg) {
+  position: relative;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-radius: $radius-xl;
+  padding: $padding;
+  box-shadow: 0 $ledge-lg 0 $outline;
+}
+
+// Costura tracejada interna (toque artesanal)
+@mixin stitched($inset: 8px, $color: $surface-3) {
+  &::before {
+    content: '';
+    position: absolute;
+    inset: $inset;
+    border: 2px dashed $color;
+    border-radius: calc(#{$radius-xl} - #{$inset});
+    pointer-events: none;
   }
 }
 
-@mixin btn-secondary {
-  @include btn-base;
-  background-color: $bg-tertiary;
-  color: $text-primary;
-  
-  &:hover:not(:disabled) {
-    background-color: $border-color;
-  }
+// Área rebaixada (poço) dentro de painéis
+@mixin well($radius: $radius-lg) {
+  background: $surface-2;
+  border-radius: $radius;
+  box-shadow: inset 0 3px 0 rgba(0, 0, 0, 0.06);
+}
+
+// Faixa de título que "morde" a borda superior do painel
+@mixin ribbon($bg: $tomato, $deep: $tomato-deep) {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translate(-50%, -55%);
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  margin: 0;
+  padding: 0.45em 1.4em;
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: $font-size-lg;
+  line-height: 1;
+  white-space: nowrap;
+  color: $ink-on-color;
+  background: $bg;
+  border: $border-width solid $outline;
+  border-radius: $radius-full;
+  box-shadow: inset 0 -3px 0 $deep, 0 $ledge-sm 0 $outline;
+}
+
+// Chip pequeno (raridade, custo, etc.)
+@mixin chip($bg: $surface-2, $fg: $ink) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.3em 0.75em;
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: $font-size-xs;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: $fg;
+  background: $bg;
+  border: 2px solid $outline;
+  border-radius: $radius-full;
+}
+
+// Barra de progresso de jogo
+@mixin progress-track($height: 1.1rem) {
+  position: relative;
+  height: $height;
+  background: $surface-2;
+  border: $border-width solid $outline;
+  border-radius: $radius-full;
+  overflow: hidden;
+}
+
+@mixin progress-fill($bg: $sun, $deep: $sun-deep) {
+  height: 100%;
+  background:
+    repeating-linear-gradient(-45deg, rgba(255, 255, 255, 0.28) 0 8px, transparent 8px 16px),
+    $bg;
+  box-shadow: inset 0 -3px 0 $deep, inset 0 2px 0 rgba(255, 255, 255, 0.5);
+  border-radius: $radius-full;
+  transition: width $transition-slow;
+}
+
+// Silhueta de item bloqueado
+@mixin silhouette {
+  filter: var(--pp-silhouette);
 }
 
 // === INPUTS ===
 @mixin input-base {
-  padding: $spacing-md;
-  border: 1px solid $border-color;
-  border-radius: $radius-md;
+  padding: 0.7em 1em;
   font-family: $font-family-base;
+  font-weight: 700;
   font-size: $font-size-base;
-  transition: border-color $transition-base;
-  
-  &:focus {
-    outline: none;
-    border-color: $primary-color;
-    box-shadow: 0 0 0 3px rgba($primary-color, 0.1);
-  }
-  
-  &:disabled {
-    background-color: $bg-tertiary;
-    cursor: not-allowed;
-    opacity: 0.5;
+  color: $ink;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-radius: $radius-md;
+
+  &:focus-visible {
+    outline: 3px solid $sun;
+    outline-offset: 2px;
   }
 }
 
-// === CARD/CONTAINER ===
-@mixin card {
-  background-color: $bg-primary;
-  border: 1px solid $border-color;
-  border-radius: $radius-lg;
-  padding: $spacing-lg;
-  box-shadow: $shadow-sm;
-}
+// === CARDS (compatibilidade) ===
+@mixin card { @include panel; }
+@mixin card-elevated { @include panel; }
 
-@mixin card-elevated {
-  @include card;
-  box-shadow: $shadow-md;
-}
-
-// === ANIMAÇÕES ===
-@mixin fade-in {
-  animation: fadeIn $transition-base ease-in-out;
-  
-  @keyframes fadeIn {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-}
-
-@mixin slide-up {
-  animation: slideUp $transition-base ease-in-out;
-  
-  @keyframes slideUp {
-    from {
-      transform: translateY(20px);
-      opacity: 0;
-    }
-    to {
-      transform: translateY(0);
-      opacity: 1;
-    }
-  }
-}
-
-@mixin pulse {
-  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
-}
+// === ANIMAÇÕES (keyframes globais em main.scss) ===
+@mixin fade-in { animation: pp-fade-in $transition-base ease-out both; }
+@mixin slide-up { animation: pp-slide-up 280ms $ease-bounce both; }
+@mixin pop-in { animation: pp-pop-in 360ms $ease-bounce both; }
+@mixin pulse { animation: pp-pulse 1.6s ease-in-out infinite; }
+@mixin bob($duration: 2.4s) { animation: pp-bob $duration ease-in-out infinite; }
