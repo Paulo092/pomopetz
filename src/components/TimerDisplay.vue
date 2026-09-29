@@ -11,7 +11,7 @@
         class="mode-btn"
         :class="[`is-${mode}`, { active: pomodoro.currentMode === mode }]"
         :aria-checked="pomodoro.currentMode === mode"
-        @click="pomodoro.setMode(mode)"
+        @click="requestMode(mode)"
       >
         {{ pomodoro.getModeLabel(mode) }}
       </button>
@@ -73,7 +73,7 @@
         class="ctrl-round"
         title="Pular para o próximo modo"
         aria-label="Pular"
-        @click="pomodoro.skip()"
+        @click="requestSkip()"
       >
         ⏭️
       </button>
@@ -87,11 +87,36 @@
       </template>
       <template v-else>Aperte <strong>Iniciar</strong> quando estiver pronto.</template>
     </p>
+
+    <!-- Aviso ao trocar de modo com o timer rodando -->
+    <ConfirmDialog
+      :open="!!pending"
+      :icon="isFocus ? '🍅' : '☕'"
+      :tone="isFocus ? 'danger' : 'warning'"
+      :title="isFocus ? 'Abandonar o foco?' : 'Encerrar a pausa?'"
+      :cancel-label="`Continuar ${pomodoro.getModeLabel()}`"
+      :confirm-label="`Ir para ${targetLabel}`"
+      @cancel="pending = null"
+      @confirm="confirmPending"
+    >
+      <p>
+        O timer de <strong>{{ pomodoro.getModeLabel() }}</strong> está rodando
+        há <strong>{{ elapsed }}</strong> (faltam {{ pomodoro.formattedTime }}).
+      </p>
+      <p v-if="isFocus">
+        Se trocar para <strong>{{ targetLabel }}</strong> agora, este ciclo será perdido
+        e você <strong>não ganhará as moedas</strong> nem a chama da ofensiva por ele.
+      </p>
+      <p v-else>
+        Se trocar para <strong>{{ targetLabel }}</strong>, o restante da pausa será descartado.
+      </p>
+    </ConfirmDialog>
   </div>
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import ConfirmDialog from './ConfirmDialog.vue'
 
 const props = defineProps({
   pomodoro: { type: Object, required: true }
@@ -107,6 +132,51 @@ const modeIcon = computed(() => ({
   shortBreak: '☕',
   longBreak: '🌙'
 }[props.pomodoro.currentMode]))
+
+// ---------- Confirmação de troca de modo ----------
+// { kind: 'switch' | 'skip', mode } — ação aguardando confirmação
+const pending = ref(null)
+
+const isFocus = computed(() => props.pomodoro.currentMode === props.pomodoro.MODES.FOCUS)
+
+// Mesmo destino que o skip() do composable usa
+const skipTarget = () =>
+  isFocus.value ? props.pomodoro.MODES.SHORT_BREAK : props.pomodoro.MODES.FOCUS
+
+const targetLabel = computed(() =>
+  pending.value ? props.pomodoro.getModeLabel(pending.value.mode) : ''
+)
+
+const elapsed = computed(() => {
+  const secs = Math.max(0, props.pomodoro.totalDuration - props.pomodoro.timeRemaining)
+  const m = Math.floor(secs / 60)
+  const s = secs % 60
+  return m > 0 ? `${m} min ${String(s).padStart(2, '0')} s` : `${s} s`
+})
+
+const requestMode = (mode) => {
+  if (mode === props.pomodoro.currentMode) return
+  if (!props.pomodoro.isRunning) return props.pomodoro.setMode(mode)
+  pending.value = { kind: 'switch', mode }
+}
+
+const requestSkip = () => {
+  if (!props.pomodoro.isRunning) return props.pomodoro.skip()
+  pending.value = { kind: 'skip', mode: skipTarget() }
+}
+
+const confirmPending = () => {
+  const action = pending.value
+  pending.value = null
+  if (!action) return
+  if (action.kind === 'skip') props.pomodoro.skip()
+  else props.pomodoro.setMode(action.mode)
+}
+
+// Se o ciclo terminar (ou for pausado) com o popup aberto, o aviso perde o sentido
+watch(() => props.pomodoro.isRunning, (running) => {
+  if (!running) pending.value = null
+})
 
 const runningMessage = computed(() =>
   props.pomodoro.currentMode === props.pomodoro.MODES.FOCUS
