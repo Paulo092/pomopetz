@@ -7,7 +7,23 @@
     width="560px"
     @close="emit('close')"
   >
-    <section class="section" aria-labelledby="sound-heading">
+    <div class="tabs" role="tablist" aria-label="Seções das configurações">
+      <button
+        v-for="tab in TABS"
+        :key="tab.id"
+        role="tab"
+        class="tab"
+        :class="{ active: activeTab === tab.id }"
+        :aria-selected="activeTab === tab.id"
+        @click="activeTab = tab.id"
+      >
+        {{ tab.label }}
+      </button>
+    </div>
+
+    <BackupPanel v-if="activeTab === 'backup'" />
+
+    <section v-else class="section" aria-labelledby="sound-heading">
       <div class="section-head">
         <h3 id="sound-heading" class="section-title">🔔 Som ao terminar o timer</h3>
 
@@ -81,15 +97,25 @@
 </template>
 
 <script setup>
-import { computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import BaseDialog from './BaseDialog.vue'
+import BackupPanel from './BackupPanel.vue'
 import { useSound } from '../composables/useSound'
 
-defineProps({
+const props = defineProps({
   open: { type: Boolean, default: false }
 })
 
 const emit = defineEmits(['close'])
+
+const TABS = [
+  { id: 'sound', label: '🔔 Som' },
+  { id: 'backup', label: '💾 Backup' }
+]
+const activeTab = ref('sound')
+
+// Sempre abre na primeira aba
+watch(() => props.open, (open) => { if (open) activeTab.value = 'sound' })
 
 // As preferências são salvas automaticamente no localStorage pelo useSound
 const { settings, SOUND_OPTIONS, preview } = useSound()
@@ -109,6 +135,36 @@ const volumeIcon = computed(() => {
 <style lang="scss" scoped>
 @use '../styles/variables' as *;
 @use '../styles/mixins' as *;
+
+// ---------- Abas ----------
+.tabs {
+  @include well($radius-full);
+  display: flex;
+  gap: 0.25rem;
+  width: fit-content;
+  margin: 0 auto $spacing-md;
+  padding: 0.35rem;
+}
+
+.tab {
+  padding: 0.45rem 1rem;
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: $font-size-sm;
+  color: $ink-soft;
+  border: $border-width solid transparent;
+  border-radius: $radius-full;
+  transition: color $transition-base, transform $transition-fast;
+
+  &:hover:not(.active) { color: $ink; transform: translateY(-1px); }
+
+  &.active {
+    color: $ink-on-color;
+    background: $grape;
+    border-color: $outline;
+    box-shadow: inset 0 -3px 0 $grape-deep, 0 2px 0 $outline;
+  }
+}
 
 .section {
   display: flex;

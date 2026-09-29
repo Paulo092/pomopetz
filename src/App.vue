@@ -124,6 +124,7 @@ import { useStreak } from './composables/useStreak'
 import { useExcursion } from './composables/useExcursion'
 import { useDataMigration } from './composables/useDataMigration'
 import { useSound } from './composables/useSound'
+import { RESTORED_FLAG } from './utils/backup'
 
 import GameToast from './components/GameToast.vue'
 import SettingsDialog from './components/SettingsDialog.vue'
@@ -138,6 +139,9 @@ import ExcursionPanel from './components/ExcursionPanel.vue'
 // desembrulha as refs, então nos templates e nos componentes filhos
 // `pomodoro.isRunning` é um boolean (e não um objeto Ref sempre "truthy").
 const dataMigration = useDataMigration()
+// Migra os dados salvos ANTES de os composables lerem o localStorage
+// (importante também ao restaurar backups de versões antigas)
+dataMigration.initialize()
 const rewards = reactive(useRewards())
 const streak = reactive(useStreak())
 const pomodoro = reactive(usePomodoro({ onComplete: handleCycleCompleted }))
@@ -226,7 +230,14 @@ const syncStreakPets = () => {
 syncStreakPets()
 
 onMounted(() => {
-  dataMigration.initialize()
+  // Voltando de uma restauração de backup (a página foi recarregada)
+  try {
+    if (sessionStorage.getItem(RESTORED_FLAG)) {
+      sessionStorage.removeItem(RESTORED_FLAG)
+      pushToast('💾', 'Progresso restaurado com sucesso!', 'success')
+    }
+  } catch {}
+
   // Navegadores bloqueiam áudio até a primeira interação: libera no 1º clique/tecla
   window.addEventListener('pointerdown', sound.unlock, { once: true })
   window.addEventListener('keydown', sound.unlock, { once: true })

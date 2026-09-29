@@ -30,6 +30,8 @@ export function useRewards() {
         coins.value = 0
         unlockedPets.value = [1]
         activePetId.value = 1
+        // Salva já o pet inicial, para aparecer em backups e resumos
+        save()
       }
     } catch (error) {
       console.error('Erro ao carregar rewards:', error)

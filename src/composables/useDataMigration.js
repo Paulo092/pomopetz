@@ -1,5 +1,5 @@
 const STORAGE_VERSION_KEY = 'pomopetz_version'
-const CURRENT_VERSION = 1
+export const CURRENT_VERSION = 1
 const migrations = {}
 
 export function useDataMigration() {
