@@ -31,6 +31,7 @@ export function usePomodoro({ onComplete } = {}) {
   const timeRemaining = ref(MODE_DURATIONS[MODES.FOCUS])
   const isRunning = ref(false)
   const completedFocusCount = ref(0)
+  const cyclePosition = ref(0)
   const lastCompletedMode = ref(null)
 
   let endAt = null
@@ -42,6 +43,7 @@ export function usePomodoro({ onComplete } = {}) {
         currentMode: currentMode.value,
         timeRemaining: timeRemaining.value,
         completedFocusCount: completedFocusCount.value,
+        cyclePosition: cyclePosition.value,
         endAt: isRunning.value ? endAt : null
       }))
     } catch (error) {
@@ -75,12 +77,21 @@ export function usePomodoro({ onComplete } = {}) {
     }
   }
 
-  const getNextMode = (finishedMode) => {
-    if (finishedMode !== MODES.FOCUS) return MODES.FOCUS
-    return completedFocusCount.value > 0 &&
-      completedFocusCount.value % FOCUS_CYCLES_BEFORE_LONG_BREAK === 0
+  const nextMode = computed(() => {
+    if (currentMode.value !== MODES.FOCUS) return MODES.FOCUS
+    return cyclePosition.value + 1 >= FOCUS_CYCLES_BEFORE_LONG_BREAK
       ? MODES.LONG_BREAK
       : MODES.SHORT_BREAK
+  })
+
+  const advanceCycle = () => {
+    const target = nextMode.value
+    if (currentMode.value === MODES.FOCUS) {
+      cyclePosition.value = Math.min(FOCUS_CYCLES_BEFORE_LONG_BREAK, cyclePosition.value + 1)
+    } else if (currentMode.value === MODES.LONG_BREAK) {
+      cyclePosition.value = 0
+    }
+    goToMode(target)
   }
 
   const goToMode = (mode) => {
@@ -97,7 +108,7 @@ export function usePomodoro({ onComplete } = {}) {
 
     if (finishedMode === MODES.FOCUS) completedFocusCount.value++
     lastCompletedMode.value = finishedMode
-    goToMode(getNextMode(finishedMode))
+    advanceCycle()
     saveToStorage()
     updateTabTitle()
 
@@ -147,13 +158,14 @@ export function usePomodoro({ onComplete } = {}) {
     updateTabTitle()
   }
 
-  // Pular NÃO conta como ciclo concluído (sem recompensa)
+  // Pular NÃO conta como ciclo concluído (sem recompensa),
+  // mas avança a sequência normalmente (inclusive até a pausa longa)
   const skip = () => {
     stopInterval()
     isRunning.value = false
     endAt = null
     lastCompletedMode.value = null
-    goToMode(currentMode.value === MODES.FOCUS ? MODES.SHORT_BREAK : MODES.FOCUS)
+    advanceCycle()
     saveToStorage()
     updateTabTitle()
   }
@@ -188,6 +200,10 @@ export function usePomodoro({ onComplete } = {}) {
 
       currentMode.value = Object.values(MODES).includes(data.currentMode) ? data.currentMode : MODES.FOCUS
       completedFocusCount.value = Number(data.completedFocusCount) || 0
+      const storedPosition = Number.isFinite(data.cyclePosition)
+        ? data.cyclePosition
+        : completedFocusCount.value % FOCUS_CYCLES_BEFORE_LONG_BREAK
+      cyclePosition.value = Math.min(FOCUS_CYCLES_BEFORE_LONG_BREAK, Math.max(0, Math.floor(storedPosition)))
       timeRemaining.value = Number.isFinite(data.timeRemaining) && data.timeRemaining > 0
         ? data.timeRemaining
         : MODE_DURATIONS[currentMode.value]
@@ -216,6 +232,9 @@ export function usePomodoro({ onComplete } = {}) {
     timeRemaining,
     isRunning,
     completedFocusCount,
+    cyclePosition,
+    nextMode,
+    focusCyclesBeforeLongBreak: FOCUS_CYCLES_BEFORE_LONG_BREAK,
     lastCompletedMode,
     formattedTime,
     totalDuration,

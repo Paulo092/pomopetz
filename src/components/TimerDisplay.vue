@@ -42,7 +42,7 @@
       <div class="dial-face">
         <span class="dial-label">{{ pomodoro.isRunning ? 'restam' : 'pronto?' }}</span>
         <time class="dial-time" role="timer" aria-live="off">{{ pomodoro.formattedTime }}</time>
-        <span class="dial-cycles" :title="`${pomodoro.completedFocusCount} ciclos de foco concluídos`">
+        <span class="dial-cycles" :title="`${pomodoro.completedFocusCount} ciclos de foco concluídos · ${pomodoro.cyclePosition}/${pomodoro.focusCyclesBeforeLongBreak} até a pausa longa`">
           🍅 × {{ pomodoro.completedFocusCount }}
         </span>
       </div>
@@ -150,8 +150,7 @@ const pending = ref(null)
 const isFocus = computed(() => props.pomodoro.currentMode === props.pomodoro.MODES.FOCUS)
 
 // Mesmo destino que o skip() do composable usa
-const skipTarget = () =>
-  isFocus.value ? props.pomodoro.MODES.SHORT_BREAK : props.pomodoro.MODES.FOCUS
+const skipTarget = () => props.pomodoro.nextMode
 
 const targetLabel = computed(() =>
   pending.value ? props.pomodoro.getModeLabel(pending.value.mode) : ''
