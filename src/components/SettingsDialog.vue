@@ -51,6 +51,45 @@
       </p>
     </section>
 
+    <section v-else-if="activeTab === 'timer'" class="section" aria-labelledby="timer-heading">
+      <div class="section-head">
+        <h3 id="timer-heading" class="section-title">🔁 Ciclagem automática</h3>
+
+        <label class="switch">
+          <input
+            v-model="settings.autoCycle"
+            type="checkbox"
+            class="switch-input"
+            aria-describedby="auto-cycle-note"
+          />
+          <span class="switch-track" aria-hidden="true"><span class="switch-thumb"></span></span>
+          <span class="switch-text">{{ settings.autoCycle ? 'Ligada' : 'Desligada' }}</span>
+        </label>
+      </div>
+
+      <p id="auto-cycle-note" class="note">
+        <template v-if="settings.autoCycle">
+          Quando um timer terminar, o próximo da sequência começa sozinho. Você pode pausar a qualquer momento.
+        </template>
+        <template v-else>
+          Quando um timer terminar, o próximo fica pronto e espera você apertar <strong>Iniciar</strong>.
+        </template>
+      </p>
+
+      <ol class="cycle-steps" :class="{ muted: !settings.autoCycle }" aria-label="Sequência dos timers">
+        <li
+          v-for="(step, index) in CYCLE_STEPS"
+          :key="index"
+          class="cycle-step"
+          :class="step.mode"
+        >
+          <span aria-hidden="true">{{ step.icon }}</span>
+          <span class="cycle-step-name">{{ step.label }}</span>
+        </li>
+        <li class="cycle-step repeat" aria-label="e repete">↺</li>
+      </ol>
+    </section>
+
     <section v-else class="section" aria-labelledby="sound-heading">
       <div class="section-head">
         <h3 id="sound-heading" class="section-title">🔔 Som ao terminar o timer</h3>
@@ -130,6 +169,7 @@ import BaseDialog from './BaseDialog.vue'
 import BackupPanel from './BackupPanel.vue'
 import { useProfile, sanitizeName, NAME_MAX_LENGTH } from '../composables/useProfile'
 import { useSound } from '../composables/useSound'
+import { useSettings } from '../composables/useSettings'
 
 const props = defineProps({
   open: { type: Boolean, default: false }
@@ -139,6 +179,7 @@ const emit = defineEmits(['close'])
 
 const TABS = [
   { id: 'profile', label: '👤 Perfil' },
+  { id: 'timer', label: '⏱️ Timer' },
   { id: 'sound', label: '🔔 Som' },
   { id: 'backup', label: '💾 Backup' }
 ]
@@ -167,8 +208,17 @@ watch(() => props.open, (open) => {
   nameSaved.value = false
 })
 
-// As preferências são salvas automaticamente no localStorage pelo useSound
-const { settings, SOUND_OPTIONS, preview } = useSound()
+// As preferências são salvas automaticamente no localStorage pelo useSettings
+const { settings } = useSettings()
+const { SOUND_OPTIONS, preview } = useSound()
+
+// ---------- Timer ----------
+const FOCUS_STEP = { mode: 'focus', icon: '🎯', label: 'Foco' }
+const SHORT_STEP = { mode: 'short', icon: '☕', label: 'Curta' }
+const CYCLE_STEPS = [
+  FOCUS_STEP, SHORT_STEP, FOCUS_STEP, SHORT_STEP, FOCUS_STEP, SHORT_STEP, FOCUS_STEP,
+  { mode: 'long', icon: '🌙', label: 'Longa' }
+]
 
 const volumePercent = computed({
   get: () => Math.round(settings.volume * 100),
@@ -478,6 +528,47 @@ const volumeIcon = computed(() => {
     border: $border-width solid $outline;
     border-radius: 50%;
     box-shadow: inset 0 -3px 0 $sun-deep;
+  }
+}
+
+// ---------- Timer ----------
+.cycle-steps {
+  @include well;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.7rem;
+  list-style: none;
+  transition: opacity $transition-base;
+
+  &.muted { opacity: 0.6; }
+}
+
+.cycle-step {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.3rem 0.65rem;
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: $font-size-sm;
+  color: $ink;
+  background: $surface;
+  border: $border-width solid $outline;
+  border-radius: $radius-full;
+
+  &.long {
+    color: $ink-on-color;
+    background: $grape;
+    box-shadow: inset 0 -3px 0 $grape-deep;
+  }
+
+  &.repeat {
+    font-size: $font-size-lg;
+    line-height: 1;
+    background: transparent;
+    border-color: transparent;
   }
 }
 

@@ -25,8 +25,9 @@ const STORAGE_KEY = 'pomopetz_pomodoro'
  *
  * @param {Object} options
  * @param {(mode: string) => void} [options.onComplete] chamado quando um ciclo termina naturalmente
+ * @param {() => boolean} [options.shouldAutoStart] se retornar true, o próximo ciclo começa sozinho
  */
-export function usePomodoro({ onComplete } = {}) {
+export function usePomodoro({ onComplete, shouldAutoStart } = {}) {
   const currentMode = ref(MODES.FOCUS)
   const timeRemaining = ref(MODE_DURATIONS[MODES.FOCUS])
   const isRunning = ref(false)
@@ -99,8 +100,10 @@ export function usePomodoro({ onComplete } = {}) {
     timeRemaining.value = MODE_DURATIONS[mode]
   }
 
-  // Ciclo terminou naturalmente (tempo chegou a zero)
-  const complete = () => {
+  // Ciclo terminou naturalmente (tempo chegou a zero).
+  // `live` = terminou com o app aberto (false ao restaurar um ciclo que
+  // expirou enquanto a página estava fechada — aí não faz sentido auto-iniciar).
+  const complete = ({ live = true } = {}) => {
     const finishedMode = currentMode.value
     stopInterval()
     isRunning.value = false
@@ -113,6 +116,9 @@ export function usePomodoro({ onComplete } = {}) {
     updateTabTitle()
 
     onComplete?.(finishedMode)
+
+    // Ciclagem automática: emenda o próximo modo da sequência
+    if (live && shouldAutoStart?.()) start()
   }
 
   const tick = () => {
@@ -214,7 +220,7 @@ export function usePomodoro({ onComplete } = {}) {
         if (endAt > Date.now()) {
           runInterval()
         } else {
-          complete()
+          complete({ live: false })
         }
       }
     } catch (error) {

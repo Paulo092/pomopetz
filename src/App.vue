@@ -128,6 +128,7 @@ import { useStreak } from './composables/useStreak'
 import { useExcursion } from './composables/useExcursion'
 import { useDataMigration } from './composables/useDataMigration'
 import { useSound } from './composables/useSound'
+import { useSettings } from './composables/useSettings'
 import { useProfile } from './composables/useProfile'
 import { RESTORED_FLAG } from './utils/backup'
 
@@ -150,7 +151,11 @@ const dataMigration = useDataMigration()
 dataMigration.initialize()
 const rewards = reactive(useRewards())
 const streak = reactive(useStreak())
-const pomodoro = reactive(usePomodoro({ onComplete: handleCycleCompleted }))
+const { settings } = useSettings()
+const pomodoro = reactive(usePomodoro({
+  onComplete: handleCycleCompleted,
+  shouldAutoStart: () => settings.autoCycle
+}))
 const excursion = reactive(useExcursion(
   (coins) => rewards.addCoins(coins),
   (petId) => {
